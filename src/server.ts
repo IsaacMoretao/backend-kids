@@ -3,6 +3,9 @@ import ChildController from "./modules/Controllers/ChildController"
 import UsersController from "./modules/Controllers/UsersController"
 const app = express()
 
+const port = process.env.PORT || 3333;
+const baseURL = 'https://backend-kids.vercel.app';
+
 const cors = require("cors")
 
 app.use(cors())
@@ -24,7 +27,6 @@ app.get('/', (req, res) => {
 app.use(express.json());
 app.use(router);
 
-app.listen(
-  3333, () =>
-  console.log("Server is Running")
-)
+app.listen(port, () => {
+  console.log(`Server is listening at ${baseURL}:${port}`);
+});
