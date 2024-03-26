@@ -3,7 +3,7 @@ import ChildController from "./modules/Controllers/ChildController"
 import UsersController from "./modules/Controllers/UsersController"
 const app = express()
 
-const port = process.env.PORT || 3333;
+const port = process.env.PORT ? Number(process.env.PORT) : 3333;
 const baseURL = '0.0.0.0';
 
 const cors = require("cors")
