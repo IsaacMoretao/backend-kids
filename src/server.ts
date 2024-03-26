@@ -4,7 +4,7 @@ import UsersController from "./modules/Controllers/UsersController"
 const app = express()
 
 const port = process.env.PORT || 3333;
-const baseURL = 'https://backend-kids.vercel.app';
+const baseURL = '0.0.0.0';
 
 const cors = require("cors")
 
@@ -27,6 +27,10 @@ app.get('/', (req, res) => {
 app.use(express.json());
 app.use(router);
 
-app.listen(port, () => {
-  console.log(`Server is listening at ${baseURL}:${port}`);
+app.listen(port, baseURL, (err) => {
+  if (err) {
+    console.error('Error starting server:', err);
+  } else {
+    console.log(`Server running at http://${baseURL}:${port}/`);
+  }
 });
