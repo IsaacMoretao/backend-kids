@@ -27,10 +27,6 @@ app.get('/', (req, res) => {
 app.use(express.json());
 app.use(router);
 
-app.listen(port, baseURL, (err) => {
-  if (err) {
-    console.error('Error starting server:', err);
-  } else {
-    console.log(`Server running at http://${baseURL}:${port}/`);
-  }
+app.listen(port, baseURL, () => {
+  console.log("http server running")
 });
