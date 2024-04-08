@@ -52,10 +52,12 @@ class UserController {
         return res.status(401).json({ error: 'Credenciais inválidas.' });
       }
 
+      const level = user.level;
+
       // Gera o token de autenticação
       const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: '12h' });
 
-      return res.status(200).json({ token });
+      return res.status(200).json({ token, level });
     } catch (error) {
       console.error('Erro ao fazer login:', error);
       return res.status(500).json({ error: 'Erro ao fazer login.' });
