@@ -9,7 +9,7 @@ const secretKey = 'your_secret_key';
 class UserController {
   async register(req: Request, res: Response) {
     try {
-      const { username, password } = req.body;
+      const { username, password, level } = req.body;
 
       // Verifica se o usuário já existe
       const existingUser = await prisma.user.findUnique({ where: { username } });
@@ -24,6 +24,7 @@ class UserController {
       const newUser = await prisma.user.create({
         data: {
           username,
+          level,
           password: hashedPassword,
         },
       });
@@ -52,7 +53,7 @@ class UserController {
       }
 
       // Gera o token de autenticação
-      const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: '1h' });
+      const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: '12h' });
 
       return res.status(200).json({ token });
     } catch (error) {
