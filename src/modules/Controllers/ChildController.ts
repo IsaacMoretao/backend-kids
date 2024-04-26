@@ -13,7 +13,7 @@ class ChildController {
   
       let children;
       if (childId) {
-        const child = await prisma.classes.findFirst({
+        const child = await prisma.classes.findUnique({
           where: { id: Number(childId) }
         });
         children = child ? [child] : [];
