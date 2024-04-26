@@ -7,8 +7,18 @@ class ChildController {
 
   async index(req: Request, res: Response) {
     try {
-      // Lista todas as crianças
-      const children = await prisma.classes.findMany();
+      const { childId } = req.params;
+  
+      let children;
+      if (childId) {
+        const child = await prisma.classes.findFirst({
+          where: { id: Number(childId) }
+        });
+        children = child ? [child] : [];
+      } else {
+        children = await prisma.classes.findMany();
+      }
+  
       return res.status(200).json(children);
     } catch (error) {
       console.error('Erro ao listar crianças:', error);

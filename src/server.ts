@@ -12,7 +12,7 @@ app.use(cors())
 
 const router = Router();
 
-router.get('/children', ChildController.index);
+router.get('/children/:id?', ChildController.index);
 router.get('/children/filterByAge', ChildController.filterByAge);
 router.post('/children', ChildController.create);
 router.put('/children/:id', ChildController.update);
