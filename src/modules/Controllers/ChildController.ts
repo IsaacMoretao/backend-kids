@@ -7,9 +7,9 @@ class ChildController {
 
   async index(req: Request, res: Response) {
     try {
-      const { ID } = req.params;
+      const { id } = req.params;
 
-      const childId = ID
+      const childId = id
   
       let children;
       if (childId) {
