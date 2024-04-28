@@ -16,6 +16,7 @@ router.get('/children/:id?', ChildController.index);
 router.get('/children/filterByAge', ChildController.filterByAge);
 router.post('/children', ChildController.create);
 router.put('/children/:id', ChildController.update);
+router.put('/addPoint/:id', ChildController.addPoint);
 router.delete('/delete/:id', ChildController.delete);
 router.post('/register', UsersController.register);
 router.post('/login', UsersController.login);

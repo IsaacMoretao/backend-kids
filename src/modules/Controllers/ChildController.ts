@@ -115,6 +115,36 @@ class ChildController {
     }
   }
 
+  async addPoint(req: Request, res: Response) {
+    try {
+      const { id } = req.params; // Obtendo o ID da criança a ser atualizada
+      const { pontos } = req.body; // Pontos a serem adicionados
+  
+      // Verifica se a criança existe
+      const existingChild = await prisma.classes.findUnique({
+        where: { id: Number(id) },
+      });
+  
+      // Se a criança não existe, retorna um erro 404
+      if (!existingChild) {
+        return res.status(404).json({ error: 'Criança não encontrada.' });
+      }
+  
+      // Atualiza os pontos da criança
+      const updatedChild = await prisma.classes.update({
+        where: { id: Number(id) },
+        data: {
+          pontos: existingChild.pontos + pontos, // Adiciona os pontos existentes aos pontos recebidos
+        },
+      });
+  
+      return res.status(200).json(updatedChild);
+    } catch (error) {
+      console.error('Erro ao atualizar criança:', error);
+      return res.status(500).json({ error: 'Erro ao atualizar criança.' });
+    }
+  } 
+
   async delete(req: Request, res: Response) {
     try {
       const { id } = req.params; // Obtendo o ID da criança a ser deletada
