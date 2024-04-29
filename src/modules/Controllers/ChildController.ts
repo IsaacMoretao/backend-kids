@@ -18,7 +18,6 @@ class ChildController {
 
   async filterByAge(req: Request, res: Response) {
     const { minAge, maxAge } = req.query;
-
     try {
       const children = await prisma.classes.findMany({
         where: {
