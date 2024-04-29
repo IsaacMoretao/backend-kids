@@ -7,20 +7,8 @@ class ChildController {
 
   async index(req: Request, res: Response) {
     try {
-      const { id } = req.params;
-
-      const childId = id
-  
-      let children;
-      if (childId) {
-        const child = await prisma.classes.findUnique({
-          where: { id: Number(childId) }
-        });
-        children = child ? [child] : [];
-      } else {
-        children = await prisma.classes.findMany();
-      }
-  
+      // Lista todas as crianças
+      const children = await prisma.classes.findMany();
       return res.status(200).json(children);
     } catch (error) {
       console.error('Erro ao listar crianças:', error);
@@ -29,10 +17,9 @@ class ChildController {
   }
 
   async filterByAge(req: Request, res: Response) {
-    try {
-      const { minAge, maxAge } = req.query;
+    const { minAge, maxAge } = req.query;
 
-      // Filtra as crianças pela idade
+    try {
       const children = await prisma.classes.findMany({
         where: {
           idade: {
@@ -41,7 +28,6 @@ class ChildController {
           },
         },
       });
-
       return res.status(200).json(children);
     } catch (error) {
       console.error('Erro ao filtrar crianças por idade:', error);
