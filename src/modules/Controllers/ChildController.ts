@@ -36,37 +36,46 @@ class ChildController {
 
   async create(req: Request, res: Response) {
     try {
-      const { nome, idade, pontos } = req.body;
-  
-      // Validação dos campos
-      if (!nome || !idade || !pontos) {
-        return res.status(400).json({ error: 'Nome, idade e pontos são obrigatórios.' });
-      }
-  
-      // Convertendo idade e pontos para números
-      const idadeNumber = parseInt(idade);
-      const pontosNumber = parseInt(pontos);
-  
-      // Verifique se a conversão foi bem-sucedida
-      if (isNaN(idadeNumber) || isNaN(pontosNumber)) {
-        return res.status(400).json({ error: 'Idade e pontos devem ser números válidos.' });
-      }
-  
-      // Cria uma nova criança no banco de dados
-      const child = await prisma.classes.create({
-        data: {
-          nome,
-          idade: idadeNumber,
-          pontos: pontosNumber,
-        },
-      });
-  
-      return res.status(201).json(child);
+        const children = req.body;
+
+        // Validação dos campos
+        if (!Array.isArray(children) || children.length === 0) {
+            return res.status(400).json({ error: 'Uma lista de crianças é obrigatória.' });
+        }
+
+        const createdChildren = [];
+
+        for (const childData of children) {
+            const { nome, idade, pontos } = childData;
+
+            if (!nome || !idade || !pontos) {
+                return res.status(400).json({ error: 'Nome, idade e pontos são obrigatórios para todas as crianças.' });
+            }
+
+            const idadeNumber = parseInt(idade);
+            const pontosNumber = parseInt(pontos);
+
+            if (isNaN(idadeNumber) || isNaN(pontosNumber)) {
+                return res.status(400).json({ error: 'Idade e pontos devem ser números válidos.' });
+            }
+
+            const child = await prisma.classes.create({
+                data: {
+                    nome,
+                    idade: idadeNumber,
+                    pontos: pontosNumber,
+                },
+            });
+
+            createdChildren.push(child);
+        }
+
+        return res.status(201).json(createdChildren);
     } catch (error) {
-      console.error('Erro ao criar criança:', error);
-      return res.status(500).json({ error: 'Erro ao criar criança.' });
+        console.error('Erro ao criar crianças:', error);
+        return res.status(500).json({ error: 'Erro ao criar crianças.' });
     }
-  }
+}
 
   async update(req: Request, res: Response) {
     try {
