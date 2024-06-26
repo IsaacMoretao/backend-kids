@@ -45,20 +45,25 @@ class ChildController {
 
         const createdChildren = [];
 
-        for (const childData of children) {
-            const { nome, idade, pontos } = childData;
+        for (let i = 0; i < children.length; i++) {
+            const { nome, idade, pontos } = children[i];
 
-            if (!nome || !idade || !pontos) {
-                console.error('Dados inválidos para criança:', childData);
-                return res.status(400).json({ error: 'Nome, idade e pontos são obrigatórios para todas as crianças.' });
+            // Validação para campos obrigatórios (0 é válido)
+            if (!nome && nome !== "") {
+                console.error(`Nome é obrigatório para criança no índice ${i}:`, children[i]);
+                return res.status(400).json({ error: `Nome é obrigatório para todas as crianças. Verifique a criança no índice ${i}.` });
+            }
+            if (idade === undefined || idade === null || pontos === undefined || pontos === null) {
+                console.error(`Idade e pontos são obrigatórios para criança no índice ${i}:`, children[i]);
+                return res.status(400).json({ error: `Idade e pontos são obrigatórios para todas as crianças. Verifique a criança no índice ${i}.` });
             }
 
             const idadeNumber = parseInt(idade);
             const pontosNumber = parseInt(pontos);
 
             if (isNaN(idadeNumber) || isNaN(pontosNumber)) {
-                console.error('Idade ou pontos inválidos:', childData);
-                return res.status(400).json({ error: 'Idade e pontos devem ser números válidos.' });
+                console.error(`Idade ou pontos inválidos para criança no índice ${i}:`, children[i]);
+                return res.status(400).json({ error: `Idade e pontos devem ser números válidos. Verifique a criança no índice ${i}.` });
             }
 
             const child = await prisma.classes.create({
@@ -78,6 +83,7 @@ class ChildController {
         return res.status(500).json({ error: 'Erro ao criar crianças.' });
     }
 }
+
 
   async update(req: Request, res: Response) {
     try {
