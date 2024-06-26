@@ -49,6 +49,7 @@ class ChildController {
             const { nome, idade, pontos } = childData;
 
             if (!nome || !idade || !pontos) {
+                console.error('Dados inválidos para criança:', childData);
                 return res.status(400).json({ error: 'Nome, idade e pontos são obrigatórios para todas as crianças.' });
             }
 
@@ -56,6 +57,7 @@ class ChildController {
             const pontosNumber = parseInt(pontos);
 
             if (isNaN(idadeNumber) || isNaN(pontosNumber)) {
+                console.error('Idade ou pontos inválidos:', childData);
                 return res.status(400).json({ error: 'Idade e pontos devem ser números válidos.' });
             }
 
