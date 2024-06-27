@@ -84,7 +84,6 @@ class ChildController {
     }
 }
 
-
   async update(req: Request, res: Response) {
     try {
       const { id } = req.params; // Obtendo o ID da criança a ser atualizada
