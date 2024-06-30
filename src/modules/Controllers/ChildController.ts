@@ -36,53 +36,38 @@ class ChildController {
 
   async create(req: Request, res: Response) {
     try {
-        const children = req.body;
+      const { nome, idade, pontos } = req.body;
 
-        // Validação dos campos
-        if (!Array.isArray(children) || children.length === 0) {
-            return res.status(400).json({ error: 'Uma lista de crianças é obrigatória.' });
-        }
+      // Validação dos campos
+      if (!nome || !idade || !pontos) {
+        return res.status(400).json({ error: 'Nome, idade e pontos são obrigatórios.' });
+      }
 
-        const createdChildren = [];
+      // Convertendo idade e pontos para números
+      const idadeNumber = parseInt(idade);
+      const pontosNumber = parseInt(pontos);
 
-        for (let i = 0; i < children.length; i++) {
-            const { nome, idade, pontos } = children[i];
+      // Verifique se a conversão foi bem-sucedida
+      if (isNaN(idadeNumber) || isNaN(pontosNumber)) {
+        return res.status(400).json({ error: 'Idade e pontos devem ser números válidos.' });
+      }
 
-            // Validação para campos obrigatórios (0 é válido)
-            if (!nome && nome !== "") {
-                console.error(`Nome é obrigatório para criança no índice ${i}:`, children[i]);
-                return res.status(400).json({ error: `Nome é obrigatório para todas as crianças. Verifique a criança no índice ${i}.` });
-            }
-            if (idade === undefined || idade === null || pontos === undefined || pontos === null) {
-                console.error(`Idade e pontos são obrigatórios para criança no índice ${i}:`, children[i]);
-                return res.status(400).json({ error: `Idade e pontos são obrigatórios para todas as crianças. Verifique a criança no índice ${i}.` });
-            }
+      // Cria uma nova criança no banco de dados
+      const child = await prisma.classes.create({
+        data: {
+          nome,
+          idade: idadeNumber,
+          pontos: pontosNumber,
+        },
+      });
 
-            const idadeNumber = parseInt(idade);
-            const pontosNumber = parseInt(pontos);
-
-            if (isNaN(idadeNumber) || isNaN(pontosNumber)) {
-                console.error(`Idade ou pontos inválidos para criança no índice ${i}:`, children[i]);
-                return res.status(400).json({ error: `Idade e pontos devem ser números válidos. Verifique a criança no índice ${i}.` });
-            }
-
-            const child = await prisma.classes.create({
-                data: {
-                    nome,
-                    idade: idadeNumber,
-                    pontos: pontosNumber,
-                },
-            });
-
-            createdChildren.push(child);
-        }
-
-        return res.status(201).json(createdChildren);
+      return res.status(201).json(child);
     } catch (error) {
-        console.error('Erro ao criar crianças:', error);
-        return res.status(500).json({ error: 'Erro ao criar crianças.' });
+      console.error('Erro ao criar criança:', error);
+      return res.status(500).json({ error: 'Erro ao criar criança.' });
     }
 }
+
 
   async update(req: Request, res: Response) {
     try {
