@@ -156,6 +156,22 @@ class ChildController {
       return res.status(500).json({ error: 'Erro ao deletar criança.' });
     }
   }
+
+  async resetAllPoints(req: Request, res: Response) {
+    try {
+      // Atualiza todos os registros na tabela classes para zerar os pontos
+      const updatedChildren = await prisma.classes.updateMany({
+        data: {
+          pontos: 0,
+        },
+      });
+  
+      return res.status(200).json({ message: 'Todos os pontos foram zerados.', count: updatedChildren.count });
+    } catch (error) {
+      console.error('Erro ao zerar os pontos:', error);
+      return res.status(500).json({ error: 'Erro ao zerar os pontos.' });
+    }
+  }
 }
 
 export default new ChildController();
