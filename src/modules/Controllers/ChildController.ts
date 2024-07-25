@@ -37,21 +37,32 @@ class ChildController {
   async create(req: Request, res: Response) {
     try {
       const { nome, idade, pontos } = req.body;
-
+  
       // Validação dos campos
       if (!nome || !idade || !pontos) {
         return res.status(400).json({ error: 'Nome, idade e pontos são obrigatórios.' });
       }
-
+  
       // Convertendo idade e pontos para números
       const idadeNumber = parseInt(idade);
       const pontosNumber = parseInt(pontos);
-
+  
       // Verifique se a conversão foi bem-sucedida
       if (isNaN(idadeNumber) || isNaN(pontosNumber)) {
         return res.status(400).json({ error: 'Idade e pontos devem ser números válidos.' });
       }
-
+  
+      // Verifique se já existe uma criança com o mesmo nome
+      const existingChild = await prisma.classes.findFirst({
+        where: {
+          nome: nome,
+        },
+      });
+  
+      if (existingChild) {
+        return res.status(400).json({ error: 'Uma criança com esse nome já existe.' });
+      }
+  
       // Cria uma nova criança no banco de dados
       const child = await prisma.classes.create({
         data: {
@@ -60,14 +71,13 @@ class ChildController {
           pontos: pontosNumber,
         },
       });
-
+  
       return res.status(201).json(child);
     } catch (error) {
       console.error('Erro ao criar criança:', error);
       return res.status(500).json({ error: 'Erro ao criar criança.' });
     }
-}
-
+  }
 
   async update(req: Request, res: Response) {
     try {
