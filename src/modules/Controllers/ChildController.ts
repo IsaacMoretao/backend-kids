@@ -79,6 +79,70 @@ class ChildController {
     }
   }
 
+  async createManyChildren(req: Request, res: Response) {
+    try {
+      const children = req.body.children;
+  
+      // Validação do array de crianças
+      if (!Array.isArray(children) || children.length === 0) {
+        return res.status(400).json({ error: 'O array de crianças é obrigatório e não pode estar vazio.' });
+      }
+  
+      const errorMessages: string[] = [];
+      const createdChildren: any[] = [];
+  
+      for (const child of children) {
+        const { nome, idade, pontos } = child;
+  
+        if (!nome || !idade || !pontos) {
+          errorMessages.push(`Nome, idade e pontos são obrigatórios para a criança: ${nome || 'sem nome'}.`);
+          continue;
+        }
+  
+        const idadeNumber = parseInt(idade);
+        const pontosNumber = parseInt(pontos);
+  
+        if (isNaN(idadeNumber) || isNaN(pontosNumber)) {
+          errorMessages.push(`Idade e pontos devem ser números válidos para a criança: ${nome}.`);
+          continue;
+        }
+  
+        const existingChild = await prisma.classes.findFirst({
+          where: { nome },
+        });
+  
+        if (existingChild) {
+          errorMessages.push(`Uma criança com o nome ${nome} já existe.`);
+          continue;
+        }
+  
+        try {
+          const newChild = await prisma.classes.create({
+            data: { nome, idade: idadeNumber, pontos: pontosNumber },
+          });
+  
+          createdChildren.push(newChild);
+        } catch (error) {
+          if (error instanceof Error) {
+            errorMessages.push(`Erro ao criar a criança ${nome}: ${error.message}`);
+          } else {
+            errorMessages.push(`Erro desconhecido ao criar a criança ${nome}.`);
+          }
+        }
+      }
+  
+      return res.status(201).json({
+        createdChildren,
+        errors: errorMessages.length > 0 ? errorMessages : null,
+      });
+  
+    } catch (error) {
+      console.error('Erro ao criar crianças:', error);
+      return res.status(500).json({ error: 'Erro ao criar crianças.' });
+    }
+  }
+  
+
   async update(req: Request, res: Response) {
     try {
       const { id } = req.params; // Obtendo o ID da criança a ser atualizada
@@ -143,17 +207,22 @@ class ChildController {
 
   async delete(req: Request, res: Response) {
     try {
-      const { id } = req.params; // Obtendo o ID da criança a ser deletada
-
-      // Deleta a criança do banco de dados
-      const deletedChild = await prisma.classes.delete({
-        where: { id: Number(id) },
+      const { ids } = req.body; // Obtendo os IDs das crianças a serem deletadas
+  
+      // Verifica se ids é um array e contém pelo menos um elemento
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: 'Nenhum ID fornecido.' });
+      }
+  
+      // Deleta as crianças do banco de dados
+      const deletedChildren = await prisma.classes.deleteMany({
+        where: { id: { in: ids } },
       });
-
-      return res.status(200).json(deletedChild);
+  
+      return res.status(200).json(deletedChildren);
     } catch (error) {
-      console.error('Erro ao deletar criança:', error);
-      return res.status(500).json({ error: 'Erro ao deletar criança.' });
+      console.error('Erro ao deletar crianças:', error);
+      return res.status(500).json({ error: 'Erro ao deletar crianças.' });
     }
   }
 
@@ -170,6 +239,16 @@ class ChildController {
     } catch (error) {
       console.error('Erro ao zerar os pontos:', error);
       return res.status(500).json({ error: 'Erro ao zerar os pontos.' });
+    }
+  }
+
+  async resetAllChild(req: Request, res: Response) {
+    try {
+      const updatedChildren = await prisma.classes.deleteMany();
+      return res.status(200).json({ message: 'Todos as crianças foram deletadas', count: updatedChildren.count });
+    } catch (error) {
+      console.error('Erro ao deletar as crianças:', error);
+      return res.status(500).json({ error: 'Erro ao deletar as crianças' });
     }
   }
 }
