@@ -1,6 +1,8 @@
 import express, { Router } from "express"
 import ChildController from "./modules/Controllers/ChildController"
 import UsersController from "./modules/Controllers/UsersController"
+import AdminController from "./modules/Controllers/AdmnController"
+
 const app = express()
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3333;
@@ -14,18 +16,28 @@ const router = Router();
 
 router.get('/children/', ChildController.index);
 router.get('/children/filterByAge', ChildController.filterByAge);
+router.get('/children/:id', ChildController.getChildById);
+router.get('/children/filterById/:id', ChildController.getChildById);
+
 router.post('/children', ChildController.create);
+router.post('/created/many/children', ChildController.createManyChildren);
+
+router.post('/addPoint/:id', ChildController.addPoint);
+router.delete('/deletePoint/:id', ChildController.deletePoint);
+
 router.put('/children/:id', ChildController.update);
-router.post('/created/many/children', ChildController.createManyChildren)
-router.put('/addPoint/:id', ChildController.addPoint);
 router.delete('/delete/', ChildController.delete);
-router.post('/reset/all/points', ChildController.resetAllPoints)
+router.delete('/reset/all/points', ChildController.resetAllPoints)
+router.delete('/reset/all/child', ChildController.resetAllChild)
+
 
 router.post('/register', UsersController.register);
 router.post('/login', UsersController.login);
 
+app.use('/admin', AdminController);
+
 app.get('/', (req, res) => {
-  res.send('Hello World');
+  res.send('Server is Running');
 });
 
 app.use(express.json());
