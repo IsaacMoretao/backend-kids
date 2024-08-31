@@ -1,10 +1,14 @@
-import { Router } from 'express';
+import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import Redis from 'ioredis';
+
+const redis = new Redis();
 
 const prisma = new PrismaClient();
-const adminRouter = Router();
 
-adminRouter.post('/update-points', async (req, res) => {
+class AdmnController {
+
+  async filterByAge(req: Request, res: Response) {
   try {
     // Obtenha todas as classes
     const classes = await prisma.classes.findMany();
@@ -30,6 +34,7 @@ adminRouter.post('/update-points', async (req, res) => {
     console.error(e);
     res.status(500).send('Erro ao atualizar pontos para as classes.');
   }
-});
+};
+}
 
-export default adminRouter;
+export default new AdmnController();

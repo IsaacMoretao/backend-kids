@@ -34,7 +34,7 @@ router.delete('/reset/all/child', ChildController.resetAllChild)
 router.post('/register', UsersController.register);
 router.post('/login', UsersController.login);
 
-router.post('/admin', AdminController);
+router.post('/admin', AdminController.filterByAge);
 
 app.get('/', (req, res) => {
   res.send('Server is Running');
