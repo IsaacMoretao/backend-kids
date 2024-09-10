@@ -320,7 +320,7 @@ class ChildController {
       }
   
       // Verifica se o ponto foi adicionado há menos de um minuto
-      if (Date.now() - new Date(lastPoint.createdAt).getTime() > 60 * 1000) {
+      if (Date.now() - new Date(lastPoint.createdAt).getTime() > 18000000) {
         return res.status(403).json({ error: 'O ponto não pode ser excluído após 1 minuto.' });
       }
   
