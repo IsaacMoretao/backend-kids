@@ -4,6 +4,11 @@ import Redis from 'ioredis';
 
 const redis = new Redis();
 
+interface DeleteChildrenRequest {
+  ids: number[];
+}
+
+
 const prisma = new PrismaClient();
 
 class ChildController {
@@ -270,23 +275,31 @@ class ChildController {
 
   async addPoint(req: Request, res: Response) {
     try {
-      const { id } = req.params; // Obtendo o ID da criança a ser atualizada
+      const { idChild } = req.params;
+      const { idUser } = req.params;
 
-      // Verifica se a criança existe
+
       const existingChild = await prisma.classes.findUnique({
-        where: { id: Number(id) },
+        where: { id: Number(idChild) },
       });
 
-      // Se a criança não existe, retorna um erro 404
+      const existingUser = await prisma.user.findFirst({
+        where: { id: Number(idUser) },
+      });
+
       if (!existingChild) {
         return res.status(404).json({ error: 'Criança não encontrada.' });
       }
 
-      // Adiciona um novo registro na tabela points
+      // if (!existingUser) {
+      //   return res.status(404).json({ error: 'Usuário não encontrado.' });
+      // }
+
       const newPoint = await prisma.points.create({
         data: {
           classId: existingChild.id,
-          createdAt: new Date(), // Data de criação atual
+          createdAt: new Date(),
+          userId: existingUser?.id ? Number(existingUser.id) : 1,
         },
       });
 
@@ -338,24 +351,32 @@ class ChildController {
 
   async delete(req: Request, res: Response) {
     try {
-      const { ids } = req.body; // Obtendo os IDs das crianças a serem deletadas
-
-      // Verifica se ids é um array e contém pelo menos um elemento
-      if (!Array.isArray(ids) || ids.length === 0) {
-        return res.status(400).json({ error: 'Nenhum ID fornecido.' });
+      const { ids } = req.body as DeleteChildrenRequest;
+  
+      if (!Array.isArray(ids) || ids.length === 0 || !ids.every(id => typeof id === 'number')) {
+        return res.status(400).json({ error: 'O array de IDs está vazio ou contém valores inválidos.' });
       }
-
+  
+      // Deleta os pontos associados às crianças
+      await prisma.points.deleteMany({
+        where: { classId: { in: ids } },
+      });
+  
       // Deleta as crianças do banco de dados
       const deletedChildren = await prisma.classes.deleteMany({
         where: { id: { in: ids } },
       });
-
-      return res.status(200).json(deletedChildren);
+  
+      if (deletedChildren.count === 0) {
+        return res.status(404).json({ error: 'Nenhuma criança encontrada para os IDs fornecidos.' });
+      }
+  
+      return res.status(200).json({ message: 'Crianças deletadas com sucesso.', deletedChildren });
     } catch (error) {
       console.error('Erro ao deletar crianças:', error);
       return res.status(500).json({ error: 'Erro ao deletar crianças.' });
     }
-  }
+  }  
 
   async resetAllPoints(req: Request, res: Response) {
     try {

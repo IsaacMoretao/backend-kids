@@ -22,7 +22,7 @@ router.get('/children/filterById/:id', ChildController.getChildById);
 router.post('/children', ChildController.create);
 router.post('/created/many/children', ChildController.createManyChildren);
 
-router.post('/addPoint/:id', ChildController.addPoint);
+router.post('/addPoint/:idChild/:idUser', ChildController.addPoint);
 router.delete('/deletePoint/:id', ChildController.deletePoint);
 
 router.put('/children/:id', ChildController.update);
@@ -30,11 +30,13 @@ router.delete('/delete/', ChildController.delete);
 router.delete('/reset/all/points', ChildController.resetAllPoints)
 router.delete('/reset/all/child', ChildController.resetAllChild)
 
-
+router.get('/listUsers', UsersController.listUsers);
 router.post('/register', UsersController.register);
 router.post('/login', UsersController.login);
+router.post('/AddPresence/:userId', UsersController.addPresence);
+router.delete('/removePresence/:presenceId', UsersController.removePresence);
 
-router.post('/admin', AdminController.filterByAge);
+router.post('/admin', AdminController.setDefaultValues);
 
 app.get('/', (req, res) => {
   res.send('Server is Running');

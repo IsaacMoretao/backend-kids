@@ -1,40 +1,44 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import Redis from 'ioredis';
-
-const redis = new Redis();
 
 const prisma = new PrismaClient();
 
 class AdmnController {
 
-  async filterByAge(req: Request, res: Response) {
-  try {
-    // Obtenha todas as classes
-    const classes = await prisma.classes.findMany();
-
-    for (const classe of classes) {
-      const pointsArray = [];
-
-      // Crie objetos no array 'points' com base no número de 'pontos'
-      for (let i = 0; i < classe.pontos; i++) {
-        pointsArray.push({
-          classId: classe.id,
+  // Função para definir valores padrão nas novas colunas
+  async setDefaultValues(req: Request, res: Response) {
+    try {
+      // Atualizar registros existentes na tabela Points
+      const points = await prisma.points.findMany();
+      for (const point of points) {
+        await prisma.points.update({
+          where: { id: point.id },
+          data: {
+            userId: point.userId ?? 1, // Define userId como 1, se estiver vazio
+            createdAt: point.createdAt ?? new Date(), // Define createdAt como data atual, se estiver vazio
+          },
         });
       }
 
-      // Crie registros em 'Points' associados à classe
-      await prisma.points.createMany({
-        data: pointsArray,
-      });
-    }
+      // Atualizar registros existentes na tabela Presence
+      const presences = await prisma.presence.findMany();
+      for (const presence of presences) {
+        await prisma.presence.update({
+          where: { id: presence.id },
+          data: {
+            createdAt: presence.createdAt ?? new Date(), // Define createdAt como data atual, se estiver vazio
+            userId: presence.userId ?? 1, // Define userId como 1, se estiver vazio
+          },
+        });
+      }
 
-    res.status(200).send('Todos os pontos foram atualizados para as classes.');
-  } catch (e) {
-    console.error(e);
-    res.status(500).send('Erro ao atualizar pontos para as classes.');
+      res.status(200).send('Valores padrão foram definidos para as novas colunas.');
+    } catch (e) {
+      console.error(e);
+      res.status(500).send('Erro ao definir valores padrão para as novas colunas.');
+    }
   }
-};
+
 }
 
 export default new AdmnController();

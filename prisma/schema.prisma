@@ -8,25 +8,37 @@ datasource db {
 }
 
 model Classes {
-  id      Int      @id @default(autoincrement())
-  nome    String
-  idade   Int
-  pontos  Int
-  points  Points[]
+  id     Int      @id @default(autoincrement())
+  nome   String
+  idade  Int
+  pontos Int
+  points Points[]
 }
 
 model Points {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
   classId   Int
-  class     Classes  @relation(fields: [classId], references: [id])
+  userId    Int      @default(1)
+
+  class Classes @relation(fields: [classId], references: [id])
+  user  User    @relation(fields: [userId], references: [id])
 }
 
 model User {
-  id       Int    @id @default(autoincrement())
+  id       Int        @id @default(autoincrement())
   level    Level
-  username String @unique
+  username String     @unique
   password String
+  points   Points[]
+  presence Presence[]
+}
+
+model Presence {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id])
 }
 
 enum Level {
