@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import Redis from 'ioredis';
 
-const redis = new Redis();
 
 interface DeleteChildrenRequest {
   ids: number[];
@@ -45,7 +43,7 @@ class ChildController {
           },
         },
         include: {
-          points: true,
+          points: true, // Inclui os pontos relacionados
         },
         orderBy: {
           nome: 'asc', // Ordena por nome em ordem alfabética ascendente
@@ -56,7 +54,7 @@ class ChildController {
         id: classes.id,
         nome: classes.nome,
         idade: classes.idade,
-        pontos: classes.points.length,
+        points: classes.points,
       }));
   
       res.json(childrenWithPoints);
