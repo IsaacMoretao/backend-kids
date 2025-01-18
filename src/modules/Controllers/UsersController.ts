@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
@@ -52,13 +52,17 @@ class UserController {
         return res.status(401).json({ error: 'Credenciais inválidas.' });
       }
 
+      const AceesAdmin = `https://admin-ministerio-infantil.vercel.app/Validation/${username}/${password}`;
+      // const hashedAceesAdmin = await bcrypt.hash(AceesAdmin, 10);
       const level = user.level;
       const userId = user.id
 
       // Gera o token de autenticação
       const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: '12h' });
 
-      return res.status(200).json({ token, level, userId });
+      console.log("AceesAdmin" + AceesAdmin)
+
+      return res.status(200).json({ token, level, userId, AceesAdmin });
     } catch (error) {
       console.error('Erro ao fazer login:', error);
       return res.status(500).json({ error: 'Erro ao fazer login.' });
@@ -98,13 +102,16 @@ class UserController {
   }
 
   async addPresence(req: Request, res: Response) {
-    const { userId } = req.params; 
-    const { createdAt } = req.body;
-
+    const { userId } = req.params;
+    const { createdAt, period } = req.body;
   
     if (!userId) {
       console.error('É necessário adicionar o id do usuário presente. Por favor, adicione um ID.');
       return res.status(400).json({ error: 'O ID do usuário é necessário para adicionar a presença.' });
+    }
+  
+    if (period !== "MORNING" && period !== "AFTERNOON" && period !== "NIGHT") {
+      return res.status(400).json({ error: '[[ERRO]] O período deve ser manhã, tarde ou noite. [[ERRO]]' });
     }
   
     try {
@@ -119,10 +126,29 @@ class UserController {
         return res.status(404).json({ error: 'Erro ao adicionar presença. (Usuário não encontrado)' });
       }
   
+      // Verificar se já existe presença no mesmo período no mesmo dia
+      const existingPresence = await prisma.presence.findFirst({
+        where: {
+          userId: Number(userId),
+          createdAt: {
+            gte: new Date(new Date().setHours(0, 0, 0, 0)), // Início do dia
+            lt: new Date(new Date().setHours(23, 59, 59, 999)), // Fim do dia
+          },
+          period: period, // Verifica se já existe presença no mesmo período
+        },
+      });
+  
+      if (existingPresence) {
+        console.log('O usuário já tem presença registrada neste período.');
+        return res.status(400).json({ error: 'Usuário já possui presença registrada neste período.' });
+      }
+  
+      // Criar a nova presença
       const created = await prisma.presence.create({
         data: {
           userId: Number(userId),
           createdAt: createdAt ? new Date(createdAt) : new Date(),
+          period: period, // Salvar o período
         },
       });
   
@@ -132,6 +158,7 @@ class UserController {
       return res.status(500).json({ error: 'Erro ao adicionar presença.' });
     }
   }
+  
 
   async removePresence(req: Request, res: Response) {
     const { presenceId } = req.params; 
