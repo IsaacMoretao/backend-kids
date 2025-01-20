@@ -26,7 +26,7 @@ model Points {
 
 model User {
   id       Int        @id @default(autoincrement())
-  level    Level
+  level    String   // Level
   username String     @unique
   password String
   points   Points[]
@@ -36,17 +36,17 @@ model User {
 model Presence {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
-  period    TypePeriod
+  period    String
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
 }
 
-enum Level {
-  USER
-  ADMIN
-}
+// enum Level {
+//   USER
+//   ADMIN
+// }
 
-enum TypePeriod {
-  MORNING
-  NIGHT
-}
+// enum TypePeriod {
+//   MORNING
+//   NIGHT
+// }

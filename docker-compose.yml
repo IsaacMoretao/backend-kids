@@ -5,9 +5,9 @@ services:
     image: postgres:latest
     container_name: my_postgres
     environment:
-      - POSTGRES_USER=johndoe
-      - POSTGRES_PASSWORD=randompassword
-      - POSTGRES_DB=mydb
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=docker
+      - POSTGRES_DB=nodedeploy
     ports:
       - "5432:5432"
     volumes:
@@ -19,4 +19,6 @@ volumes:
   postgres_data:
     driver: local
 
-
+networks:
+  backend:
+    driver: bridge
