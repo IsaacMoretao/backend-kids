@@ -7,46 +7,4 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Classes {
-  id          Int      @id @default(autoincrement())
-  nome        String
-  dateOfBirth DateTime
-  points      Points[]
-}
 
-model Points {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  classId   Int
-  userId    Int      @default(1)
-
-  class Classes @relation(fields: [classId], references: [id])
-  user  User    @relation(fields: [userId], references: [id])
-}
-
-model User {
-  id       Int        @id @default(autoincrement())
-  level    String   // Level
-  username String     @unique
-  password String
-  points   Points[]
-  presence Presence[]
-}
-
-model Presence {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  period    String
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
-}
-
-// enum Level {
-//   USER
-//   ADMIN
-// }
-
-// enum TypePeriod {
-//   MORNING
-//   NIGHT
-// }
