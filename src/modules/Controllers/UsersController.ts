@@ -5,6 +5,8 @@ import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 const secretKey = 'your_secret_key';
+const normalizeString = (str: string) =>
+  str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 class UserController {
   async register(req: Request, res: Response) {
@@ -33,6 +35,40 @@ class UserController {
     } catch (error) {
       console.error('Erro ao registrar usuário:', error);
       return res.status(500).json({ error: 'Erro ao registrar usuário.' });
+    }
+  }
+
+  async updateUser(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { username, password, level } = req.body;
+  
+      // Verifica se o usuário existe
+      const existingUser = await prisma.user.findUnique({ where: { id: Number(id) } });
+      if (!existingUser) {
+        return res.status(404).json({ error: 'Usuário não encontrado.' });
+      }
+  
+      // Verifica se deseja alterar a senha e faz o hash
+      let hashedPassword = existingUser.password;
+      if (password) {
+        hashedPassword = await bcrypt.hash(password, 10);
+      }
+  
+      // Atualiza o usuário
+      const updatedUser = await prisma.user.update({
+        where: { id: Number(id) },
+        data: {
+          username,
+          level,
+          password: hashedPassword,
+        },
+      });
+  
+      return res.status(200).json(updatedUser);
+    } catch (error) {
+      console.error('Erro ao editar usuário:', error);
+      return res.status(500).json({ error: 'Erro ao editar usuário.' });
     }
   }
 
@@ -69,36 +105,39 @@ class UserController {
     }
   }
 
+
+
   async listUsers(req: Request, res: Response) {
-    const { userId } = req.headers;
-
-    try{
-      if (!userId) {
-        const users = await prisma.user.findMany({
-          include: {
-            presence: true,
-          },
-        })
-
-        return res.status(200).json(users);
+    const { userId, searchTerm } = req.headers; // Pegamos o searchTerm do header (ou pode ser query param)
+  
+    try {
+      if (userId) {
+        const user = await prisma.user.findUnique({
+          where: { id: Number(userId) },
+          include: { presence: true },
+        });
+  
+        return res.status(200).json(user);
       }
-
-      const user = await prisma.user.findUnique({
-        where: {
-          id: Number(userId) 
-        },
-        include: {
-          presence: true,
-        },
-      })
-
-      return res.status(200).json(user);
-
-    }catch{
-      console.error('Não foi possível Listar o(s) usuário(s):', Error, 'Por favor tente mais tarde');
-      return res.status(500).json({ error: 'Não foi possível Listar o(s) usuário(s).' });
+  
+      let users = await prisma.user.findMany({
+        include: { presence: true },
+      });
+  
+      // Se houver um termo de pesquisa, filtramos os usuários no backend
+      if (searchTerm) {
+        const normalizedSearch = normalizeString(String(searchTerm));
+  
+        users = users.filter((user) =>
+          normalizeString(user.username).startsWith(normalizedSearch)
+        );
+      }
+  
+      return res.status(200).json(users);
+    } catch (error) {
+      console.error("Erro ao listar usuários:", error);
+      return res.status(500).json({ error: "Não foi possível listar os usuários." });
     }
-
   }
 
   async addPresence(req: Request, res: Response) {
