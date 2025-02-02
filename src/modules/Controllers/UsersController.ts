@@ -142,6 +142,7 @@ class UserController {
   
       let users = await prisma.user.findMany({
         include: { presence: true },
+        orderBy: { username: 'asc' }, // Ordena os usuários em ordem alfabética
       });
   
       // Se houver um termo de pesquisa, filtramos os usuários no backend
@@ -159,6 +160,7 @@ class UserController {
       return res.status(500).json({ error: "Não foi possível listar os usuários." });
     }
   }
+
 
   async addPresence(req: Request, res: Response) {
     const { userId } = req.params;
