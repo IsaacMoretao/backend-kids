@@ -31,7 +31,7 @@ router.delete('/reset/all/points', ChildController.resetAllPoints)
 router.delete('/reset/all/child', ChildController.resetAllChild)
 
 router.get('/listUsers', UsersController.listUsers);
-router.put('/updateUser', UsersController.updateUser);
+router.put('/updateUser/:id', UsersController.updateUser);
 router.post('/register', UsersController.register);
 router.post('/login', UsersController.login);
 router.post('/AddPresence/:userId', UsersController.addPresence);
