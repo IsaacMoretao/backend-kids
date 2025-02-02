@@ -72,6 +72,26 @@ class UserController {
     }
   }
 
+  async deleteUser(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+  
+      // Verifica se o usuário existe
+      const existingUser = await prisma.user.findUnique({ where: { id: Number(id) } });
+      if (!existingUser) {
+        return res.status(404).json({ error: 'Usuário não encontrado.' });
+      }
+  
+      // Exclui o usuário
+      await prisma.user.delete({ where: { id: Number(id) } });
+  
+      return res.status(200).json({ message: 'Usuário excluído com sucesso.' });
+    } catch (error) {
+      console.error('Erro ao excluir usuário:', error);
+      return res.status(500).json({ error: 'Erro ao excluir usuário.' });
+    }
+  }
+
   async login(req: Request, res: Response) {
     try {
       const { username, password } = req.body;
