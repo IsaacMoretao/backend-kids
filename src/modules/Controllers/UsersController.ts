@@ -11,7 +11,10 @@ const normalizeString = (str: string) =>
 class UserController {
   async register(req: Request, res: Response) {
     try {
-      const { username, password, level } = req.body;
+      let { username, password, level } = req.body;
+
+      username = username.trim();
+      password = password.trim();
 
       // Verifica se o usuário já existe
       const existingUser = await prisma.user.findUnique({ where: { username } });
@@ -41,7 +44,10 @@ class UserController {
   async updateUser(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { username, password, level } = req.body;
+      let { username, password, level } = req.body;
+
+      username = username.trim();
+      password = password.trim();
   
       // Verifica se o usuário existe
       const existingUser = await prisma.user.findUnique({ where: { id: Number(id) } });
@@ -94,38 +100,38 @@ class UserController {
 
   async login(req: Request, res: Response) {
     try {
-      const { username, password } = req.body;
-
+      let { username, password } = req.body;
+  
+      // Remove espaços em branco extras
+      username = username.trim();
+      password = password.trim();
+  
       // Verifica se o usuário existe
       const user = await prisma.user.findUnique({ where: { username } });
       if (!user) {
         return res.status(401).json({ error: 'Usuário não encontrado.' });
       }
-
+  
       // Verifica a senha
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (!passwordMatch) {
         return res.status(401).json({ error: 'Credenciais inválidas.' });
       }
-
+  
       const AceesAdmin = `https://admin-ministerio-infantil.vercel.app/Validation/${username}/${password}`;
-      // const hashedAceesAdmin = await bcrypt.hash(AceesAdmin, 10);
       const level = user.level;
-      const userId = user.id
-
+      const userId = user.id;
+  
       // Gera o token de autenticação
       const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: '12h' });
-
-      console.log("AceesAdmin" + AceesAdmin)
-
+  
       return res.status(200).json({ token, level, userId, AceesAdmin });
     } catch (error) {
       console.error('Erro ao fazer login:', error);
       return res.status(500).json({ error: 'Erro ao fazer login.' });
     }
   }
-
-
+  
 
   async listUsers(req: Request, res: Response) {
     const { userId, searchTerm } = req.headers; // Pegamos o searchTerm do header (ou pode ser query param)

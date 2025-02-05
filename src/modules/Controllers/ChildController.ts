@@ -309,19 +309,25 @@ class ChildController {
       const now = new Date();
 
       // Busca pontos adicionados pelo usuário nas últimas 4 horas
-      const pointsAdded = await prisma.points.findMany({
-        where: {
-          userId: Number(idUser),
-          createdAt: {
-            gte: new Date(now.getTime() - 1 * 60 * 1000), // Últimas 4 horas
+      const MAX_POINTS = 4;
+      const TIME_WINDOW_HOURS = 4;
+      
+      await prisma.$transaction(async (tx) => {
+        const pointsCount = await tx.points.count({
+          where: {
+            userId: Number(idUser),
+            createdAt: {
+              gte: new Date(now.getTime() - TIME_WINDOW_HOURS * 60 * 60 * 1000), // Últimas 4 horas
+            },
           },
-        },
+        });
+      
+        if (pointsCount >= MAX_POINTS) {
+          throw new Error("Limite de 4 pontos em 4 horas atingido.");
+        }
+      
+        // Adiciona os pontos aqui, se necessário
       });
-
-      // Limita a adição de pontos a no máximo 4 nas últimas 4 horas
-      if (pointsAdded.length >= 4) {
-        return res.status(400).json({ error: 'Limite de 4 pontos em 4 horas atingido.' });
-      }
 
       // Adiciona um novo ponto
       const newPoint = await prisma.points.create({
