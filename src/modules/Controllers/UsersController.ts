@@ -106,29 +106,34 @@ class UserController {
         return res.status(400).json({ error: "Preencha todos os campos." });
       }
 
-      // Remove espaços extras e força minúsculas para evitar erros
-      username = username.trim().toLowerCase();
+      // Remove espaços em branco extras e caracteres invisíveis
+      username = username
+        .normalize("NFKC") // Normaliza caracteres Unicode
+        .replace(/[\u200B-\u200D\uFEFF]/g, "") // Remove caracteres invisíveis
+        .trim()
+        .toLowerCase();
+
       password = password.trim();
 
-      console.log(`🔍 Tentando login para usuário: ${username}`);
+      console.log(`🔍 Tentando login para usuário: "${username}"`);
 
-      // Busca o usuário ignorando maiúsculas e minúsculas
+      // Busca o usuário no banco de dados (case-insensitive)
       const user = await prisma.user.findFirst({
         where: {
-          username: { equals: username, mode: "insensitive" }, // Prisma 4+ suporta essa opção
+          username: { equals: username, mode: "insensitive" },
         },
       });
 
       if (!user) {
         console.log("❌ Usuário não encontrado.");
-        return res.status(401).json({ error: "❌ Usuário não encontrado." });
+        return res.status(401).json({ error: "Usuário ou senha incorretos." });
       }
 
       // Verifica a senha
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (!passwordMatch) {
         console.log("❌ Senha incorreta.");
-        return res.status(401).json({ error: "❌ Senha incorreta." });
+        return res.status(401).json({ error: "Usuário ou senha incorretos." });
       }
 
       // Gera o token JWT
