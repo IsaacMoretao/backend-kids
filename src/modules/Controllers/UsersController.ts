@@ -102,37 +102,51 @@ class UserController {
     try {
       let { username, password } = req.body;
   
-      // Remove espaços em branco extras
-      username = username.trim();
+      if (!username || !password) {
+        return res.status(400).json({ error: "Preencha todos os campos." });
+      }
+  
+      // Remove espaços extras e força minúsculas para evitar erros
+      username = username.trim().toLowerCase();
       password = password.trim();
   
-      // Verifica se o usuário existe
-      const user = await prisma.user.findUnique({ where: { username } });
+      console.log(`Tentando login para usuário: ${username}`);
+  
+      // Busca o usuário sem diferenciação de maiúsculas e minúsculas
+      const user = await prisma.user.findFirst({
+        where: { username },
+      });
+  
       if (!user) {
-        return res.status(401).json({ error: 'Usuário não encontrado.' });
+        console.log("Usuário não encontrado.");
+        return res.status(401).json({ error: "Usuário ou senha incorretos." });
       }
   
       // Verifica a senha
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (!passwordMatch) {
-        return res.status(401).json({ error: 'Credenciais inválidas.' });
+        console.log("Senha incorreta.");
+        return res.status(401).json({ error: "Usuário ou senha incorretos." });
       }
   
-      const AceesAdmin = `https://admin-ministerio-infantil.vercel.app/Validation/${username}/${password}`;
-      const level = user.level;
-      const userId = user.id;
+      // Gera o token JWT
+      const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: "12h" });
   
-      // Gera o token de autenticação
-      const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: '12h' });
+      console.log("Login bem-sucedido!");
   
-      return res.status(200).json({ token, level, userId, AceesAdmin });
+      return res.status(200).json({
+        token,
+        level: user.level,
+        userId: user.id,
+        AceesAdmin: `https://admin-ministerio-infantil.vercel.app/Validation/${username}/${password}`,
+      });
+  
     } catch (error) {
-      console.error('Erro ao fazer login:', error);
-      return res.status(500).json({ error: 'Erro ao fazer login.' });
+      console.error("Erro no login:", error);
+      return res.status(500).json({ error: "Erro interno no servidor." });
     }
   }
   
-
   async listUsers(req: Request, res: Response) {
     const { userId, searchTerm } = req.headers; // Pegamos o searchTerm do header (ou pode ser query param)
   
