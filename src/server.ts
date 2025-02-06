@@ -37,7 +37,7 @@ router.post('/register', UsersController.register);
 router.post('/login', UsersController.login);
 router.post('/AddPresence/:userId', UsersController.addPresence);
 router.delete('/removePresence/:presenceId', UsersController.removePresence);
-
+router.get('/fix-users', UsersController.fixUsers);
 router.post('/admin', AdminController.setDefaultValues);
 
 app.get('/', (req, res) => {

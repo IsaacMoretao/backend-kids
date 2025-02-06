@@ -281,6 +281,22 @@ class UserController {
     }
   }
 
+  async fixUsers(req: Request, res: Response) {
+
+    try {
+      await prisma.$executeRaw`
+        UPDATE "User" 
+        SET username = LOWER(TRIM(REPLACE(REPLACE(username, ' ', ' '), '⁠', ''))) 
+        WHERE username IS NOT NULL;
+      `;
+      res.json({ message: "Usernames corrigidos!" });
+    } catch (error) {
+      console.error("Erro ao corrigir usernames:", error);
+      res.status(500).json({ error: "Erro ao atualizar usernames." });
+    }
+  }
+  
+
 }
 
 export default new UserController();
