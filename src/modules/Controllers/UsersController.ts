@@ -219,7 +219,7 @@ class UserController {
         where: {
           userId: Number(userId),
           createdAt: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)), // Início do dia
+            gte: new Date(new Date().setHours(0, 0, 0, 1)), // Início do dia
             lt: new Date(new Date().setHours(23, 59, 59, 999)), // Fim do dia
           },
           period: period, // Verifica se já existe presença no mesmo período
