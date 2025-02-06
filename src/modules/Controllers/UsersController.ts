@@ -121,14 +121,14 @@ class UserController {
 
       if (!user) {
         console.log("❌ Usuário não encontrado.");
-        return res.status(401).json({ error: "Usuário ou senha incorretos." });
+        return res.status(401).json({ error: "❌ Usuário não encontrado." });
       }
 
       // Verifica a senha
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (!passwordMatch) {
         console.log("❌ Senha incorreta.");
-        return res.status(401).json({ error: "Usuário ou senha incorretos." });
+        return res.status(401).json({ error: "❌ Senha incorreta." });
       }
 
       // Gera o token JWT
