@@ -194,59 +194,69 @@ class UserController {
     const { createdAt, period } = req.body;
 
     if (!userId) {
-      console.error('É necessário adicionar o id do usuário presente. Por favor, adicione um ID.');
-      return res.status(400).json({ error: 'O ID do usuário é necessário para adicionar a presença.' });
+        console.error('É necessário adicionar o id do usuário presente. Por favor, adicione um ID.');
+        return res.status(400).json({ error: 'O ID do usuário é necessário para adicionar a presença.' });
     }
 
-    if (period !== "MORNING" && period !== "AFTERNOON" && period !== "NIGHT") {
-      return res.status(400).json({ error: '[[ERRO]] O período deve ser manhã, tarde ou noite. [[ERRO]]' });
+    if (!["MORNING", "AFTERNOON", "NIGHT"].includes(period)) {
+        return res.status(400).json({ error: '[[ERRO]] O período deve ser manhã, tarde ou noite. [[ERRO]]' });
     }
 
     try {
-      const user = await prisma.user.findUnique({
-        where: {
-          id: Number(userId),
-        },
-      });
+        const user = await prisma.user.findUnique({
+            where: { id: Number(userId) },
+        });
 
-      if (!user) {
-        console.error('Usuário não encontrado, Atualize a página e tente novamente');
-        return res.status(404).json({ error: 'Erro ao adicionar presença. (Usuário não encontrado)' });
-      }
+        if (!user) {
+            console.error('Usuário não encontrado, Atualize a página e tente novamente');
+            return res.status(404).json({ error: 'Erro ao adicionar presença. (Usuário não encontrado)' });
+        }
 
-      // Verificar se já existe presença no mesmo período no mesmo dia
-      const existingPresence = await prisma.presence.findFirst({
-        where: {
-          userId: Number(userId),
-          createdAt: {
-            gte: new Date(new Date().setHours(0, 0, 0, 1)), // Início do dia
-            lt: new Date(new Date().setHours(23, 59, 59, 999)), // Fim do dia
-          },
-          period: period, // Verifica se já existe presença no mesmo período
-        },
-      });
+        // Normaliza a data para evitar problemas com fuso horário
+        const createdAtDate = createdAt ? new Date(createdAt) : new Date();
+        createdAtDate.setHours(12, 0, 0, 0); // Garante que a hora esteja no meio do dia, evitando problemas de fuso
 
-      if (existingPresence) {
-        console.log('O usuário já tem presença registrada neste período.');
-        return res.status(400).json({ error: 'Usuário já possui presença registrada neste período.' });
-      }
+        // Ajuste para UTC (evita problemas ao salvar no banco)
+        const createdAtUTC = new Date(createdAtDate.getTime() - createdAtDate.getTimezoneOffset() * 60000);
 
-      // Criar a nova presença
-      const created = await prisma.presence.create({
-        data: {
-          userId: Number(userId),
-          createdAt: createdAt ? new Date(createdAt) : new Date(),
-          period: period, // Salvar o período
-        },
-      });
+        // Verificar se já existe presença no mesmo período no mesmo dia
+        const startOfDay = new Date(createdAtUTC);
+        startOfDay.setHours(0, 0, 0, 0);
 
-      return res.status(201).json(created);
+        const endOfDay = new Date(createdAtUTC);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const existingPresence = await prisma.presence.findFirst({
+            where: {
+                userId: Number(userId),
+                createdAt: {
+                    gte: startOfDay, // Início do dia
+                    lt: endOfDay, // Fim do dia
+                },
+                period: period,
+            },
+        });
+
+        if (existingPresence) {
+            console.log('O usuário já tem presença registrada neste período.');
+            return res.status(400).json({ error: 'Usuário já possui presença registrada neste período.' });
+        }
+
+        // Criar a nova presença
+        const created = await prisma.presence.create({
+            data: {
+                userId: Number(userId),
+                createdAt: createdAtUTC,
+                period: period,
+            },
+        });
+
+        return res.status(201).json(created);
     } catch (error) {
-      console.error('Não foi possível adicionar a presença:', error);
-      return res.status(500).json({ error: 'Erro ao adicionar presença.' });
+        console.error('Não foi possível adicionar a presença:', error);
+        return res.status(500).json({ error: 'Erro ao adicionar presença.' });
     }
-  }
-
+}
 
   async removePresence(req: Request, res: Response) {
     const { presenceId } = req.params;
