@@ -311,7 +311,7 @@ class ChildController {
       // Busca pontos adicionados pelo usuário nas últimas 4 horas
       const pointsAdded = await prisma.points.findMany({
         where: {
-          userId: Number(idUser),
+          userId: Number(idChild),
           createdAt: {
             gte: new Date(now.getTime() - 1 * 60 * 1000), // Últimas 4 horas
           },
