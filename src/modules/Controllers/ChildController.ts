@@ -287,64 +287,60 @@ class ChildController {
   async addPoint(req: Request, res: Response) {
     try {
       const { idChild, idUser } = req.params;
-      const now = new Date();
-      const MAX_POINTS = 4;
-      const TIME_WINDOW_HOURS = 4;
 
-      // Verifica se a criança existe na tabela correta
+      // Verifica se a criança existe
       const existingChild = await prisma.classes.findUnique({
-          where: { id: Number(idChild) },
+        where: { id: Number(idChild) },
       });
 
       if (!existingChild) {
-          return res.status(404).json({ error: 'Criança não encontrada.' });
+        return res.status(404).json({ error: 'Criança não encontrada.' });
       }
 
       // Verifica se o usuário existe
-      const existingUser = await prisma.user.findUnique({
-          where: { id: Number(idUser) },
+      const existingUser = await prisma.user.findFirst({
+        where: { id: Number(idUser) },
       });
 
       if (!existingUser) {
-          return res.status(404).json({ error: 'Usuário não encontrado.' });
+        return res.status(404).json({ error: 'Usuário não encontrado.' });
       }
 
-      // Executa a verificação e inserção em uma transação
-      const newPoint = await prisma.$transaction(async (tx) => {
-          // Conta os pontos do usuário nas últimas 4 horas
-          const pointsCount = await tx.points.count({
-              where: {
-                  userId: Number(idUser),
-                  createdAt: {
-                      gte: new Date(now.getTime() - TIME_WINDOW_HOURS * 60 * 60 * 1000),
-                  },
-              },
-          });
+      const now = new Date();
 
-          if (pointsCount >= MAX_POINTS) {
-              throw new Error("Limite de 4 pontos em 4 horas atingido.");
-          }
+      // Busca pontos adicionados pelo usuário nas últimas 4 horas
+      const pointsAdded = await prisma.points.findMany({
+        where: {
+          userId: Number(idUser),
+          createdAt: {
+            gte: new Date(now.getTime() - 1 * 60 * 1000), // Últimas 4 horas
+          },
+        },
+      });
 
-          // Cria o novo ponto dentro da transação
-          return tx.points.create({
-              data: {
-                  classId: existingChild.id,
-                  createdAt: now,
-                  userId: Number(idUser),
-              },
-          });
+      // Limita a adição de pontos a no máximo 4 nas últimas 4 horas
+      if (pointsAdded.length >= 4) {
+        return res.status(400).json({ error: 'Limite de 4 pontos em 4 horas atingido.' });
+      }
+
+      // Adiciona um novo ponto
+      const newPoint = await prisma.points.create({
+        data: {
+          classId: existingChild.id,
+          createdAt: now,
+          userId: Number(idUser),
+        },
       });
 
       // Retorna o ponto adicionado com validade de 4 horas
       return res.status(201).json({
-          point: newPoint,
-          validity: new Date(now.getTime() + TIME_WINDOW_HOURS * 60 * 60 * 1000), // Adiciona 4 horas
+        point: newPoint,
+        validity: new Date(now.getTime() - 1 * 60 * 1000), // Validade do ponto: 4 horas
       });
-
-  } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao adicionar ponto:', error);
-      return res.status(500).json({ error: error.message || 'Erro ao adicionar ponto.' });
-  }
+      return res.status(500).json({ error: 'Erro ao adicionar ponto.' });
+    }
   }
 
 
