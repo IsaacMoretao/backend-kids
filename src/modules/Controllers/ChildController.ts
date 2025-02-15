@@ -60,7 +60,17 @@ class ChildController {
         },
       });
 
+
+
       const childrenWithPoints = children.map((child) => {
+        const pointsTheLastHours = prisma.points.findMany({
+          where: {
+            classId: Number(child.id),
+            createdAt: {
+              gte: new Date(now.getTime() - 1 * 60 * 1000), // Últimas 4 horas
+            },
+          },
+        });
         const birthDate = child.dateOfBirth;
         const age = currentYear - birthDate.getFullYear();
         const isBeforeBirthdayThisYear =
@@ -77,12 +87,14 @@ class ChildController {
         const year = birthDate.getFullYear();
         const birthDateFormatted = `${day}/${month}/${year}`;
 
+
+
         return {
           id: child.id,
           nome: child.nome,
           idade,
           dateOfBirth: birthDateFormatted,
-          points: child.points,
+          points: pointsTheLastHours,
           pointsAdded: pointsForThisChild.length,
         };
       });
