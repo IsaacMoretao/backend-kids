@@ -116,11 +116,11 @@ class ChildController {
         const birthDate = child.dateOfBirth;
 
         const isBeforeBirthdayThisYear =
-        now.getMonth() < birthDate.getMonth() ||
-        (now.getMonth() === birthDate.getMonth() && now.getDate() < birthDate.getDate());
-      
-      // Calcula a idade ajustando caso o aniversário ainda não tenha ocorrido no ano atual
-      const idade = now.getFullYear() - birthDate.getFullYear() - (isBeforeBirthdayThisYear ? 1 : 0);
+          now.getMonth() < birthDate.getMonth() ||
+          (now.getMonth() === birthDate.getMonth() && now.getDate() < birthDate.getDate());
+
+        // Calcula a idade ajustando caso o aniversário ainda não tenha ocorrido no ano atual
+        const idade = now.getFullYear() - birthDate.getFullYear() - (isBeforeBirthdayThisYear ? 1 : 0);
 
         const day = String(birthDate.getDate()).padStart(2, '0');
         const month = String(birthDate.getMonth() + 1).padStart(2, '0');
@@ -233,18 +233,18 @@ class ChildController {
     try {
       const { id } = req.params; // Obtendo o ID da criança a ser atualizada
       const { dateOfBirth, nome, points } = req.body; // Pontos a serem atribuídos
-  
+
       // Verifica se a criança existe
       const existingChild = await prisma.classes.findUnique({
         where: { id: Number(id) },
         include: { points: true }, // Inclui os pontos para verificá-los
       });
-  
+
       // Se a criança não existe, retorna um erro 404
       if (!existingChild) {
         return res.status(404).json({ error: 'Criança não encontrada.' });
       }
-  
+
       // Atualiza os dados da criança
       const updatedChild = await prisma.classes.update({
         where: {
@@ -258,14 +258,14 @@ class ChildController {
           },
         },
       });
-  
+
       // Substitui os pontos existentes pelos novos pontos fornecidos
       if (points) {
         // Remove todos os pontos existentes
         await prisma.points.deleteMany({
           where: { classId: Number(id) },
         });
-  
+
         // Cria novos pontos se houver pontos fornecidos
         if (points.length > 0) {
           await prisma.points.createMany({
@@ -276,13 +276,13 @@ class ChildController {
           });
         }
       }
-  
+
       return res.status(200).json(updatedChild);
     } catch (error) {
       console.error('Erro ao atualizar criança:', error);
       return res.status(500).json({ error: 'Erro ao atualizar criança.' });
     }
-  }  
+  }
 
   async addPoint(req: Request, res: Response) {
     try {
@@ -335,7 +335,7 @@ class ChildController {
       // Retorna o ponto adicionado com validade de 4 horas
       return res.status(201).json({
         point: newPoint,
-        validity: new Date(now.getTime() - 1 * 60 * 1000), // Validade do ponto: 4 horas
+        validity: new Date(now.getTime()  - 4 * 60 * 60 * 1000), // Validade do ponto: 4 horas
       });
     } catch (error) {
       console.error('Erro ao adicionar ponto:', error);
@@ -347,6 +347,7 @@ class ChildController {
   async deletePoint(req: Request, res: Response) {
     try {
       const { id } = req.params;
+      const now = new Date();
 
       const existingChild = await prisma.classes.findUnique({
         where: { id: Number(id) },
@@ -354,6 +355,19 @@ class ChildController {
 
       if (!existingChild) {
         return res.status(404).json({ error: 'Criança não encontrada.' });
+      }
+
+      const pointsAdded = await prisma.points.findMany({
+        where: {
+          classId: Number(id),
+          createdAt: {
+            gte: new Date(now.getTime()  - 4 * 60 * 60 * 1000),
+          },
+        },
+      });
+
+      if (pointsAdded.length < 1) {
+        return res.status(400).json({ error: 'Não há pontos inseridos nas ultimas 4 horas.' });
       }
 
       const lastPoint = await prisma.points.findFirst({
@@ -364,11 +378,6 @@ class ChildController {
       // Se não houver pontos, retorna um erro 404
       if (!lastPoint) {
         return res.status(404).json({ error: 'Nenhum ponto encontrado para essa criança.' });
-      }
-
-      // Verifica se o ponto foi adicionado há menos de um minuto
-      if (Date.now() - new Date(lastPoint.createdAt).getTime() > 18000000) {
-        return res.status(403).json({ error: 'O ponto não pode ser excluído após 1 minuto.' });
       }
 
       // Exclui o último ponto encontrado
