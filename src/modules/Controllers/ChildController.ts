@@ -87,15 +87,14 @@ class ChildController {
         const year = birthDate.getFullYear();
         const birthDateFormatted = `${day}/${month}/${year}`;
 
-
-
         return {
           id: child.id,
           nome: child.nome,
           idade,
           dateOfBirth: birthDateFormatted,
-          points: pointsTheLastHours,
+          points: child.points,
           pointsAdded: pointsForThisChild.length,
+          pointsTheLastHours: pointsTheLastHours,
         };
       });
 
