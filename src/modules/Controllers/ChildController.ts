@@ -25,18 +25,22 @@ class ChildController {
   async filterByAge(req: Request, res: Response) {
     try {
       const { minAge, maxAge } = req.query;
-      if (!minAge || !maxAge) return res.status(400).json({ message: "Idades mínimas e máximas são necessárias." });
-
+      if (!minAge || !maxAge) 
+        return res.status(400).json({ message: "Idades mínimas e máximas são necessárias." });
+  
       const minAgeNumber = Number(minAge);
       const maxAgeNumber = Number(maxAge);
-      if (isNaN(minAgeNumber) || isNaN(maxAgeNumber)) return res.status(400).json({ message: "As idades devem ser números válidos." });
-      if (minAgeNumber > maxAgeNumber) return res.status(400).json({ message: "A idade mínima não pode ser maior que a idade máxima." });
-
+      if (isNaN(minAgeNumber) || isNaN(maxAgeNumber)) 
+        return res.status(400).json({ message: "As idades devem ser números válidos." });
+      if (minAgeNumber > maxAgeNumber) 
+        return res.status(400).json({ message: "A idade mínima não pode ser maior que a idade máxima." });
+  
       const now = new Date();
       const currentYear = now.getFullYear();
       const minDateOfBirth = new Date(currentYear - maxAgeNumber, now.getMonth(), now.getDate());
       const maxDateOfBirth = new Date(currentYear - minAgeNumber, now.getMonth(), now.getDate());
-
+  
+      // 🔹 Busca as crianças dentro da faixa etária
       const children = await prisma.classes.findMany({
         where: {
           dateOfBirth: {
@@ -48,56 +52,56 @@ class ChildController {
           points: true,
         },
         orderBy: {
-          nome: 'asc',
+          nome: "asc",
         },
       });
-
+  
+      // 🔹 Busca todos os pontos adicionados no último minuto
       const pointsAddedInTimeRange = await prisma.points.findMany({
         where: {
           createdAt: {
-            gte: new Date(now.getTime() - 1 * 60 * 1000),
+            gte: new Date(now.getTime() - 1 * 60 * 1000), // Último 1 minuto
           },
         },
       });
-
-
-
-      const childrenWithPoints = children.map((child) => {
-        const pointsTheLastHours = prisma.points.findMany({
-          where: {
-            classId: Number(child.id),
-            createdAt: {
-              gte: new Date(now.getTime() - 1 * 60 * 1000), // Últimas 4 horas
+  
+      // 🔹 Mapeia as crianças e adiciona os pontos das últimas 4 horas
+      const childrenWithPoints = await Promise.all(
+        children.map(async (child) => {
+          const pointsTheLastHours = await prisma.points.findMany({
+            where: {
+              classId: Number(child.id),
+              createdAt: {
+                gte: new Date(now.getTime() - 4 * 60 * 60 * 1000), // Últimas 4 horas
+              },
             },
-          },
-        });
-        const birthDate = child.dateOfBirth;
-        const age = currentYear - birthDate.getFullYear();
-        const isBeforeBirthdayThisYear =
-          now.getMonth() < birthDate.getMonth() ||
-          (now.getMonth() === birthDate.getMonth() && now.getDate() < birthDate.getDate());
-        const idade = isBeforeBirthdayThisYear ? age - 1 : age;
-
-        const pointsForThisChild = pointsAddedInTimeRange.filter(
-          (point) => point.classId === child.id
-        );
-
-        const day = String(birthDate.getDate()).padStart(2, '0');
-        const month = String(birthDate.getMonth() + 1).padStart(2, '0');
-        const year = birthDate.getFullYear();
-        const birthDateFormatted = `${day}/${month}/${year}`;
-
-        return {
-          id: child.id,
-          nome: child.nome,
-          idade,
-          dateOfBirth: birthDateFormatted,
-          points: child.points,
-          pointsAdded: pointsForThisChild.length,
-          pointsTheLastHours: pointsTheLastHours,
-        };
-      });
-
+          });
+  
+          const birthDate = child.dateOfBirth;
+          const age = currentYear - birthDate.getFullYear();
+          const isBeforeBirthdayThisYear =
+            now.getMonth() < birthDate.getMonth() ||
+            (now.getMonth() === birthDate.getMonth() && now.getDate() < birthDate.getDate());
+          const idade = isBeforeBirthdayThisYear ? age - 1 : age;
+  
+          // 🔹 Formata a data de nascimento
+          const day = String(birthDate.getDate()).padStart(2, "0");
+          const month = String(birthDate.getMonth() + 1).padStart(2, "0");
+          const year = birthDate.getFullYear();
+          const birthDateFormatted = `${day}/${month}/${year}`;
+  
+          return {
+            id: child.id,
+            nome: child.nome,
+            idade,
+            dateOfBirth: birthDateFormatted,
+            points: child.points,
+            pointsAdded: pointsTheLastHours.length,
+            // pointsTheLastHours: pointsTheLastHours.length, // 🔹 Agora funciona corretamente
+          };
+        })
+      );
+  
       res.json(childrenWithPoints);
     } catch (error) {
       console.error("Erro ao buscar as crianças:", error);
@@ -324,7 +328,7 @@ class ChildController {
         where: {
           classId: Number(idChild),
           createdAt: {
-            gte: new Date(now.getTime() - 1 * 60 * 1000), // Últimas 4 horas
+            gte: new Date(now.getTime() - 4 * 60 * 60 * 1000), // Últimas 4 horas
           },
         },
       });
