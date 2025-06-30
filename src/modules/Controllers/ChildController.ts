@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import type { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 
@@ -25,21 +26,21 @@ class ChildController {
   async filterByAge(req: Request, res: Response) {
     try {
       const { minAge, maxAge } = req.query;
-      if (!minAge || !maxAge) 
+      if (!minAge || !maxAge)
         return res.status(400).json({ message: "Idades mínimas e máximas são necessárias." });
-  
+
       const minAgeNumber = Number(minAge);
       const maxAgeNumber = Number(maxAge);
-      if (isNaN(minAgeNumber) || isNaN(maxAgeNumber)) 
+      if (isNaN(minAgeNumber) || isNaN(maxAgeNumber))
         return res.status(400).json({ message: "As idades devem ser números válidos." });
-      if (minAgeNumber > maxAgeNumber) 
+      if (minAgeNumber > maxAgeNumber)
         return res.status(400).json({ message: "A idade mínima não pode ser maior que a idade máxima." });
-  
+
       const now = new Date();
       const currentYear = now.getFullYear();
       const minDateOfBirth = new Date(currentYear - maxAgeNumber, now.getMonth(), now.getDate());
       const maxDateOfBirth = new Date(currentYear - minAgeNumber, now.getMonth(), now.getDate());
-  
+
       // 🔹 Busca as crianças dentro da faixa etária
       const children = await prisma.classes.findMany({
         where: {
@@ -55,7 +56,7 @@ class ChildController {
           nome: "asc",
         },
       });
-  
+
       // 🔹 Busca todos os pontos adicionados no último minuto
       const pointsAddedInTimeRange = await prisma.points.findMany({
         where: {
@@ -64,7 +65,7 @@ class ChildController {
           },
         },
       });
-  
+
       // 🔹 Mapeia as crianças e adiciona os pontos das últimas 4 horas
       const childrenWithPoints = await Promise.all(
         children.map(async (child) => {
@@ -76,20 +77,20 @@ class ChildController {
               },
             },
           });
-  
+
           const birthDate = child.dateOfBirth;
           const age = currentYear - birthDate.getFullYear();
           const isBeforeBirthdayThisYear =
             now.getMonth() < birthDate.getMonth() ||
             (now.getMonth() === birthDate.getMonth() && now.getDate() < birthDate.getDate());
           const idade = isBeforeBirthdayThisYear ? age - 1 : age;
-  
+
           // 🔹 Formata a data de nascimento
           const day = String(birthDate.getDate()).padStart(2, "0");
           const month = String(birthDate.getMonth() + 1).padStart(2, "0");
           const year = birthDate.getFullYear();
           const birthDateFormatted = `${day}/${month}/${year}`;
-  
+
           return {
             id: child.id,
             nome: child.nome,
@@ -101,7 +102,7 @@ class ChildController {
           };
         })
       );
-  
+
       res.json(childrenWithPoints);
     } catch (error) {
       console.error("Erro ao buscar as crianças:", error);
@@ -246,58 +247,36 @@ class ChildController {
   }
   async update(req: Request, res: Response) {
     try {
-      const { id } = req.params; // Obtendo o ID da criança a ser atualizada
-      const { dateOfBirth, nome, points } = req.body; // Pontos a serem atribuídos
+      const id = Number(req.params.id);
+      const { dateOfBirth, nome, points } = req.body;
 
-      // Verifica se a criança existe
-      const existingChild = await prisma.classes.findUnique({
-        where: { id: Number(id) },
-        include: { points: true }, // Inclui os pontos para verificá-los
-      });
+      // 1) Confirma que existe
+      const existing = await prisma.classes.findUnique({ where: { id } });
+      if (!existing) return res.status(404).json({ error: 'Criança não encontrada.' });
 
-      // Se a criança não existe, retorna um erro 404
-      if (!existingChild) {
-        return res.status(404).json({ error: 'Criança não encontrada.' });
-      }
-
-      // Atualiza os dados da criança
-      const updatedChild = await prisma.classes.update({
-        where: {
-          id: Number.parseInt(id), // ID da criança a ser atualizada
-        },
+      // 2) Atualiza tudo de uma vez, incluindo pontos
+      const updated = await prisma.classes.update({
+        where: { id },
         data: {
-          nome, // Nome da criança
-          dateOfBirth: new Date(dateOfBirth), // Data de nascimento da criança
+          nome,
+          dateOfBirth: new Date(dateOfBirth),
           points: {
-            set: points, // Atualiza os pontos (aqui você pode definir como precisa atualizar os pontos)
+            deleteMany: {},                   // apaga todos os pontos antigos
+            create: points.map(() => ({       // cria tantos pontos quanto houver objetos no array
+              createdAt: new Date(),
+            })),
           },
         },
+        include: { points: true },
       });
 
-      // Substitui os pontos existentes pelos novos pontos fornecidos
-      if (points) {
-        // Remove todos os pontos existentes
-        await prisma.points.deleteMany({
-          where: { classId: Number(id) },
-        });
-
-        // Cria novos pontos se houver pontos fornecidos
-        if (points.length > 0) {
-          await prisma.points.createMany({
-            data: points.map(() => ({
-              createdAt: new Date(), // Define a data de criação como o dia atual
-              classId: Number(id), // Associa o ponto à criança
-            })),
-          });
-        }
-      }
-
-      return res.status(200).json(updatedChild);
-    } catch (error) {
-      console.error('Erro ao atualizar criança:', error);
+      return res.status(200).json(updated);
+    } catch (err) {
+      console.error('Erro ao atualizar criança:', err);
       return res.status(500).json({ error: 'Erro ao atualizar criança.' });
     }
   }
+
 
   async addPoint(req: Request, res: Response) {
     try {
@@ -350,7 +329,7 @@ class ChildController {
       // Retorna o ponto adicionado com validade de 4 horas
       return res.status(201).json({
         point: newPoint,
-        validity: new Date(now.getTime()  - 4 * 60 * 60 * 1000), // Validade do ponto: 4 horas
+        validity: new Date(now.getTime() - 4 * 60 * 60 * 1000), // Validade do ponto: 4 horas
       });
     } catch (error) {
       console.error('Erro ao adicionar ponto:', error);
@@ -376,7 +355,7 @@ class ChildController {
         where: {
           classId: Number(id),
           createdAt: {
-            gte: new Date(now.getTime()  - 4 * 60 * 60 * 1000),
+            gte: new Date(now.getTime() - 4 * 60 * 60 * 1000),
           },
         },
       });
