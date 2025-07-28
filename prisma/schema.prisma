@@ -25,28 +25,32 @@ model Points {
 }
 
 model User {
-  id       Int        @id @default(autoincrement())
-  level    String   // Level
-  username String     @unique
-  password String
-  points   Points[]
-  presence Presence[]
+  id        Int        @id @default(autoincrement())
+  level     Level
+  isActive  Boolean    @default(true)
+  avatarURL String     @default("https://api.multiavatar.com/gerson.svg")
+  username  String     @unique
+  position  String     @default("AUXILIAR")
+  password  String
+  points    Points[]
+  presence  Presence[]
 }
 
 model Presence {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  period    String
+  id        Int        @id @default(autoincrement())
+  createdAt DateTime   @default(now())
+  period    TypePeriod
   userId    Int
-  user      User     @relation(fields: [userId], references: [id])
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// enum Level {
-//   USER
-//   ADMIN
-// }
+enum Level {
+  READER
+  USER
+  ADMIN
+}
 
-// enum TypePeriod {
-//   MORNING
-//   NIGHT
-// }
+enum TypePeriod {
+  MORNING
+  NIGHT
+}

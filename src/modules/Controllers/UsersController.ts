@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import type { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
@@ -31,6 +31,7 @@ class UserController {
         data: {
           username,
           level,
+          avatarURL: `https://api.multiavatar.com/${username}.svg`,
           password: hashedPassword,
         },
       });
@@ -107,18 +108,19 @@ class UserController {
         return res.status(400).json({ error: "Preencha todos os campos." });
       }
 
-      // Remove espaços em branco extras e caracteres invisíveis
       username = username
-        .normalize("NFKC") // Normaliza caracteres Unicode
-        .replace(/[\u200B-\u200D\uFEFF]/g, "") // Remove caracteres invisíveis
+        .normalize("NFKC")
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")
         .trim()
         .toLowerCase();
 
-      password = password.trim();
+      password = password
+        .normalize("NFKC")
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")
+        .trim()
+        .toLowerCase();
 
-      console.log(`🔍 Tentando login para usuário: "${username}"`);
 
-      // Busca o usuário no banco de dados (case-insensitive)
       const user = await prisma.user.findFirst({
         where: {
           username: { equals: username, mode: "insensitive" },
@@ -130,23 +132,21 @@ class UserController {
         return res.status(401).json({ error: "Usuário ou senha incorretos." });
       }
 
-      // Verifica a senha
       const passwordMatch = await bcrypt.compare(password, user.password);
       if (!passwordMatch) {
         console.log("❌ Senha incorreta.");
         return res.status(401).json({ error: "Usuário ou senha incorretos." });
       }
 
-      // Gera o token JWT
       const token = jwt.sign({ id: user.id }, secretKey, { expiresIn: "12h" });
 
       console.log("✅ Login bem-sucedido!");
 
       return res.status(200).json({
-        token,
-        level: user.level,
-        userId: user.id,
-        AceesAdmin: `https://admin-ministerio-infantil.vercel.app/Validation/${username}/${password}`,
+        token
+        // level: user.level,
+        // userId: user.id,
+        // AceesAdmin: `https://admin-ministerio-infantil.vercel.app/Validation/${username}/${password}`,
       });
 
     } catch (error) {
@@ -156,7 +156,11 @@ class UserController {
   }
 
   async listUsers(req: Request, res: Response) {
-    const { userId, searchTerm } = req.headers; // Pegamos o searchTerm do header (ou pode ser query param)
+    const { userId, searchName, searchPosition } = req.query;
+
+    const page = searchName || searchPosition ? 1 : Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 100;
+    const skip = (page - 1) * limit;
 
     try {
       if (userId) {
@@ -168,21 +172,39 @@ class UserController {
         return res.status(200).json(user);
       }
 
-      let users = await prisma.user.findMany({
+      const whereCondition: Prisma.UserWhereInput = {
+        ...(searchName && {
+          username: {
+            startsWith: String(searchName),
+            mode: Prisma.QueryMode.insensitive,
+          },
+        }),
+        ...(searchPosition && {
+          position: {
+            startsWith: String(searchPosition).toUpperCase(),
+            mode: Prisma.QueryMode.insensitive,
+          },
+        }),
+      };
+
+      const users = await prisma.user.findMany({
+        where: whereCondition,
         include: { presence: true },
-        orderBy: { username: 'asc' }, // Ordena os usuários em ordem alfabética
+        orderBy: { username: 'asc' },
+        skip,
+        take: limit,
       });
 
-      // Se houver um termo de pesquisa, filtramos os usuários no backend
-      if (searchTerm) {
-        const normalizedSearch = normalizeString(String(searchTerm));
+      const totalUsers = await prisma.user.count({
+        where: whereCondition,
+      });
 
-        users = users.filter((user) =>
-          normalizeString(user.username).startsWith(normalizedSearch)
-        );
-      }
-
-      return res.status(200).json(users);
+      return res.status(200).json({
+        data: users,
+        currentPage: page,
+        totalPages: Math.ceil(totalUsers / limit),
+        totalUsers,
+      });
     } catch (error) {
       console.error("Erro ao listar usuários:", error);
       return res.status(500).json({ error: "Não foi possível listar os usuários." });
@@ -191,73 +213,62 @@ class UserController {
 
 
   async addPresence(req: Request, res: Response) {
-    const { userId } = req.params;
-    const { createdAt, period } = req.body;
+    let { createdAt, period } = req.body;
+    const userId = Number(req.params.userId);
+
 
     if (!userId) {
-        console.error('É necessário adicionar o id do usuário presente. Por favor, adicione um ID.');
-        return res.status(400).json({ error: 'O ID do usuário é necessário para adicionar a presença.' });
+      return res.status(401).json({ error: "Usuário não autenticado." });
     }
 
-    if (!["MORNING", "AFTERNOON", "NIGHT"].includes(period)) {
-        return res.status(400).json({ error: '[[ERRO]] O período deve ser manhã, tarde ou noite. [[ERRO]]' });
+    if (period != "MORNING" && period != "NIGHT") {
+      return res.status(400).json({ error: '[[ERRO]] O período deve ser manhã, tarde ou noite. [[ERRO]]' });
     }
 
     try {
-        const user = await prisma.user.findUnique({
-            where: { id: Number(userId) },
-        });
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        return res.status(404).json({ error: 'Erro ao adicionar presença. (Usuário não encontrado)' });
+      }
 
-        if (!user) {
-            console.error('Usuário não encontrado, Atualize a página e tente novamente');
-            return res.status(404).json({ error: 'Erro ao adicionar presença. (Usuário não encontrado)' });
-        }
+      const createdAtDate = createdAt ? new Date(createdAt) : new Date();
+      createdAtDate.setHours(12, 0, 0, 0);
+      const createdAtUTC = new Date(createdAtDate.getTime() - createdAtDate.getTimezoneOffset() * 60000);
 
-        // Normaliza a data para evitar problemas com fuso horário
-        const createdAtDate = createdAt ? new Date(createdAt) : new Date();
-        createdAtDate.setHours(12, 0, 0, 0); // Garante que a hora esteja no meio do dia, evitando problemas de fuso
+      const startOfDay = new Date(createdAtUTC);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(createdAtUTC);
+      endOfDay.setHours(23, 59, 59, 999);
 
-        // Ajuste para UTC (evita problemas ao salvar no banco)
-        const createdAtUTC = new Date(createdAtDate.getTime() - createdAtDate.getTimezoneOffset() * 60000);
+      const existingPresence = await prisma.presence.findFirst({
+        where: {
+          userId,
+          createdAt: {
+            gte: startOfDay,
+            lt: endOfDay,
+          },
+          period,
+        },
+      });
 
-        // Verificar se já existe presença no mesmo período no mesmo dia
-        const startOfDay = new Date(createdAtUTC);
-        startOfDay.setHours(0, 0, 0, 0);
+      if (existingPresence) {
+        return res.status(400).json({ error: 'Usuário já possui presença registrada neste período.' });
+      }
 
-        const endOfDay = new Date(createdAtUTC);
-        endOfDay.setHours(23, 59, 59, 999);
+      const created = await prisma.presence.create({
+        data: {
+          userId,
+          createdAt: createdAtUTC,
+          period,
+        },
+      });
 
-        const existingPresence = await prisma.presence.findFirst({
-            where: {
-                userId: Number(userId),
-                createdAt: {
-                    gte: startOfDay, // Início do dia
-                    lt: endOfDay, // Fim do dia
-                },
-                period: period,
-            },
-        });
-
-        if (existingPresence) {
-            console.log('O usuário já tem presença registrada neste período.');
-            return res.status(400).json({ error: 'Usuário já possui presença registrada neste período.' });
-        }
-
-        // Criar a nova presença
-        const created = await prisma.presence.create({
-            data: {
-                userId: Number(userId),
-                createdAt: createdAtUTC,
-                period: period,
-            },
-        });
-
-        return res.status(201).json(created);
+      return res.status(201).json(created);
     } catch (error) {
-        console.error('Não foi possível adicionar a presença:', error);
-        return res.status(500).json({ error: 'Erro ao adicionar presença.' });
+      console.error('Erro ao adicionar presença:', error);
+      return res.status(500).json({ error: 'Erro interno ao adicionar presença.' });
     }
-}
+  }
 
   async removePresence(req: Request, res: Response) {
     const { presenceId } = req.params;
@@ -306,7 +317,7 @@ class UserController {
       res.status(500).json({ error: "Erro ao atualizar usernames." });
     }
   }
-  
+
 
 }
 
