@@ -40,6 +40,7 @@ router.delete('/removePresence/:presenceId', UsersController.removePresence);
 router.get('/fix-users', UsersController.fixUsers);
 router.post('/admin', AdminController.setDefaultValues);
 
+
 app.get('/', (req, res) => {
   res.send('Server is Running');
 });
