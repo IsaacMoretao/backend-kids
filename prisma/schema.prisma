@@ -28,7 +28,7 @@ model User {
   id        Int        @id @default(autoincrement())
   level     Level
   isActive  Boolean    @default(true)
-  avatarURL String     @default("https://api.multiavatar.com/gerson.svg")
+  avatarURL String     @default("https://robohash.org/gerson.png")
   username  String     @unique
   position  String     @default("AUXILIAR")
   password  String
