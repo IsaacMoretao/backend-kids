@@ -2,6 +2,8 @@ import express, { Router } from "express"
 import ChildController from "./modules/Controllers/ChildController"
 import UsersController from "./modules/Controllers/UsersController"
 import AdminController from "./modules/Controllers/AdmnController"
+import { upload } from "./Middleware/upload"
+import path from 'path'
 
 const app = express()
 
@@ -31,7 +33,7 @@ router.delete('/reset/all/points', ChildController.resetAllPoints)
 router.delete('/reset/all/child', ChildController.resetAllChild)
 
 router.get('/listUsers', UsersController.listUsers);
-router.put('/updateUser/:id', UsersController.updateUser);
+router.put('/updateUser/:id', upload.single('avatar'), UsersController.updateUser);
 router.delete('/deleteUser/:id', UsersController.deleteUser);
 router.post('/register', UsersController.register);
 router.post('/login', UsersController.login);
@@ -39,6 +41,9 @@ router.post('/AddPresence/:userId', UsersController.addPresence);
 router.delete('/removePresence/:presenceId', UsersController.removePresence);
 router.get('/fix-users', UsersController.fixUsers);
 router.post('/admin', AdminController.setDefaultValues);
+router.put('/stopUser/:userId', UsersController.stopedUser)
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
 
 app.get('/', (req, res) => {
