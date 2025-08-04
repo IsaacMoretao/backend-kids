@@ -4,6 +4,7 @@ import UsersController from "./modules/Controllers/UsersController"
 import AdminController from "./modules/Controllers/AdmnController"
 import { upload } from "./Middleware/upload"
 import path from 'path'
+import { updateAllAvatars } from "./scripts/updateAllAvatars"
 
 const app = express()
 
@@ -44,6 +45,8 @@ router.post('/admin', AdminController.setDefaultValues);
 router.put('/stopUser/:userId', UsersController.stopedUser)
 
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+app.use('/updateAllAvatars', updateAllAvatars)
 
 
 app.get('/', (req, res) => {
