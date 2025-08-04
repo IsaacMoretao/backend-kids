@@ -51,7 +51,7 @@ class UserController {
         data: {
           username,
           level,
-          avatarURL: `https://api.multiavatar.com/${username}.png`,
+          avatarURL: `https://robohash.org/${username}.png`,
           password: hashedPassword,
         },
       });

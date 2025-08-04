@@ -43,7 +43,7 @@ router.get('/fix-users', UsersController.fixUsers);
 router.post('/admin', AdminController.setDefaultValues);
 router.put('/stopUser/:userId', UsersController.stopedUser)
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 
 app.get('/', (req, res) => {
