@@ -27,8 +27,15 @@ class UserController {
     try {
       let { username, password, level } = req.body;
 
-      username = username.trim();
-      password = password.trim();
+      username = username
+        .normalize("NFKC")
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")
+        .trim()
+
+      password = password
+        .normalize("NFKC")
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")
+        .trim()
 
       // Verifica se o usuário já existe
       const existingUser = await prisma.user.findUnique({ where: { username } });
@@ -138,13 +145,11 @@ class UserController {
         .normalize("NFKC")
         .replace(/[\u200B-\u200D\uFEFF]/g, "")
         .trim()
-        .toLowerCase();
 
       password = password
         .normalize("NFKC")
         .replace(/[\u200B-\u200D\uFEFF]/g, "")
         .trim()
-        .toLowerCase();
 
 
       const user = await prisma.user.findFirst({
@@ -177,7 +182,6 @@ class UserController {
 
       return res.status(200).json({
         token
-
       });
 
     } catch (error) {
