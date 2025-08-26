@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import type { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 interface DeleteChildrenRequest {
   ids: number[];
@@ -25,23 +25,38 @@ class ChildController {
 
   async filterByAge(req: Request, res: Response) {
     try {
-      const { minAge, maxAge } = req.query;
+      const { minAge, maxAge, skip = 0, take = 10 } = req.query;
+
       if (!minAge || !maxAge)
         return res.status(400).json({ message: "Idades mínimas e máximas são necessárias." });
 
       const minAgeNumber = Number(minAge);
       const maxAgeNumber = Number(maxAge);
+      const skipNumber = Number(skip);
+      const takeNumber = Number(take);
+
       if (isNaN(minAgeNumber) || isNaN(maxAgeNumber))
         return res.status(400).json({ message: "As idades devem ser números válidos." });
+
       if (minAgeNumber > maxAgeNumber)
         return res.status(400).json({ message: "A idade mínima não pode ser maior que a idade máxima." });
 
       const now = new Date();
       const currentYear = now.getFullYear();
+
       const minDateOfBirth = new Date(currentYear - maxAgeNumber, now.getMonth(), now.getDate());
       const maxDateOfBirth = new Date(currentYear - minAgeNumber, now.getMonth(), now.getDate());
 
-      // 🔹 Busca as crianças dentro da faixa etária
+      // 🔹 Conta total antes da paginação
+      const total = await prisma.classes.count({
+        where: {
+          dateOfBirth: {
+            gte: minDateOfBirth,
+            lte: maxDateOfBirth,
+          },
+        },
+      });
+
       const children = await prisma.classes.findMany({
         where: {
           dateOfBirth: {
@@ -55,58 +70,121 @@ class ChildController {
         orderBy: {
           nome: "asc",
         },
+        skip: skipNumber,
+        take: takeNumber,
       });
 
-      // 🔹 Busca todos os pontos adicionados no último minuto
-      const pointsAddedInTimeRange = await prisma.points.findMany({
+      // 🔹 Agrupar IDs para evitar N+1 consultas
+      const childIds = children.map((c) => c.id);
+
+      const pointsGroupedByChild = await prisma.points.groupBy({
+        by: ['classId'],
+        _count: true,
         where: {
+          classId: { in: childIds },
           createdAt: {
-            gte: new Date(now.getTime() - 1 * 60 * 1000), // Último 1 minuto
+            gte: new Date(now.getTime() - 4 * 60 * 60 * 1000), // últimas 4h
           },
         },
       });
 
-      // 🔹 Mapeia as crianças e adiciona os pontos das últimas 4 horas
-      const childrenWithPoints = await Promise.all(
-        children.map(async (child) => {
-          const pointsTheLastHours = await prisma.points.findMany({
-            where: {
-              classId: Number(child.id),
-              createdAt: {
-                gte: new Date(now.getTime() - 4 * 60 * 60 * 1000), // Últimas 4 horas
-              },
-            },
-          });
-
-          const birthDate = child.dateOfBirth;
-          const age = currentYear - birthDate.getFullYear();
-          const isBeforeBirthdayThisYear =
-            now.getMonth() < birthDate.getMonth() ||
-            (now.getMonth() === birthDate.getMonth() && now.getDate() < birthDate.getDate());
-          const idade = isBeforeBirthdayThisYear ? age - 1 : age;
-
-          // 🔹 Formata a data de nascimento
-          const day = String(birthDate.getDate()).padStart(2, "0");
-          const month = String(birthDate.getMonth() + 1).padStart(2, "0");
-          const year = birthDate.getFullYear();
-          const birthDateFormatted = `${day}/${month}/${year}`;
-
-          return {
-            id: child.id,
-            nome: child.nome,
-            idade,
-            dateOfBirth: birthDateFormatted,
-            points: child.points,
-            pointsAdded: pointsTheLastHours.length,
-            // pointsTheLastHours: pointsTheLastHours.length, // 🔹 Agora funciona corretamente
-          };
-        })
+      const pointsMap = Object.fromEntries(
+        pointsGroupedByChild.map((p) => [p.classId, p._count])
       );
 
-      res.json(childrenWithPoints);
+      const childrenWithPoints = children.map((child) => {
+        const birthDate = child.dateOfBirth;
+        const age = currentYear - birthDate.getFullYear();
+        const isBeforeBirthdayThisYear =
+          now.getMonth() < birthDate.getMonth() ||
+          (now.getMonth() === birthDate.getMonth() && now.getDate() < birthDate.getDate());
+
+        const idade = isBeforeBirthdayThisYear ? age - 1 : age;
+
+        const day = String(birthDate.getDate()).padStart(2, "0");
+        const month = String(birthDate.getMonth() + 1).padStart(2, "0");
+        const year = birthDate.getFullYear();
+        const birthDateFormatted = `${day}/${month}/${year}`;
+
+        return {
+          id: child.id,
+          nome: child.nome,
+          idade,
+          dateOfBirth: birthDateFormatted,
+          points: child.points.length,
+          pointsAdded: pointsMap[child.id] || 0,
+        };
+      });
+
+      const hasNextPage = skipNumber + takeNumber < total;
+
+      res.json({
+        total,
+        pageSize: takeNumber,
+        currentSkip: skipNumber,
+        hasNextPage,
+        data: childrenWithPoints,
+      });
     } catch (error) {
       console.error("Erro ao buscar as crianças:", error);
       res.status(500).json({ message: "Erro ao buscar as crianças." });
+    }
+  }
+
+  async getPointsById(req: Request, res: Response) {
+    // console.log('[getPointsById] params=', req.params, 'query=', req.query);
+
+    const rawId = (req.params.id) as string | undefined;
+    console.log("id passado: " + rawId)
+    if (!rawId) return res.status(400).json({ error: 'Parâmetro "id" (ou "childId") é obrigatório.' });
+
+    const classId = Number(rawId);
+    if (!Number.isFinite(classId)) return res.status(400).json({ error: '"id" deve ser numérico.', rawId });
+
+    const clicks = req.query.mostrarMais !== undefined ? Number(req.query.mostrarMais) : undefined;
+    const takePoints = clicks && Number.isFinite(clicks) && clicks > 0 ? Math.floor(clicks) * 3 : undefined;
+
+    try {
+      const points = await prisma.points.findMany({
+        where: { classId },
+        orderBy: [{ createdAt: Prisma.SortOrder.desc }], // ou 'desc' as const
+        ...(takePoints ? { take: takePoints } : {}),
+      });
+
+      // Se quiser, também pode retornar info básica da classe:
+      // const clazz = await prisma.classes.findUnique({ where: { id: classId }, select: { id: true, name: true } });
+
+      return res.status(200).json({ classId, points });
+    } catch (err) {
+      console.error('[getPointsById] erro', { classId, takePoints, err });
+      return res.status(500).json({ message: 'Erro ao buscar a criança.' });
+    }
+  }
+
+  async getAllPointsById(req: Request, res: Response) {
+    // console.log('[getPointsById] params=', req.params, 'query=', req.query);
+
+    const rawId = (req.params.id) as string | undefined;
+    console.log("id passado: " + rawId)
+    if (!rawId) return res.status(400).json({ error: 'Parâmetro "id" (ou "childId") é obrigatório.' });
+
+    const classId = Number(rawId);
+    if (!Number.isFinite(classId)) return res.status(400).json({ error: '"id" deve ser numérico.', rawId });
+
+    try {
+      const points = await prisma.points.findMany({
+        where: { classId },
+        orderBy: [{ createdAt: Prisma.SortOrder.desc }], // ou 'desc' as const
+
+      });
+
+      // Se quiser, também pode retornar info básica da classe:
+      // const clazz = await prisma.classes.findUnique({ where: { id: classId }, select: { id: true, name: true } });
+
+      return res.status(200).json({ classId, points });
+    } catch (err) {
+      console.error('[getPointsById] erro', { classId, err });
+      return res.status(500).json({ message: 'Erro ao buscar a criança.' });
     }
   }
 
@@ -149,7 +227,7 @@ class ChildController {
           dateOfBirth: birthDateFormatted,
           idade,
           pointsAdded: pointsAdded.length,
-          points: child.points,
+          points: child.points.length,
         };
 
         res.json(childWithPoints);
@@ -245,25 +323,31 @@ class ChildController {
       return res.status(500).json({ error: 'Erro ao criar múltiplas crianças.' });
     }
   }
+
   async update(req: Request, res: Response) {
     try {
       const id = Number(req.params.id);
-      const { dateOfBirth, nome, points } = req.body;
+      const { dateOfBirth, nome, points, userId } = req.body;
 
-      // 1) Confirma que existe
+      // 1) Confirma que a criança existe
       const existing = await prisma.classes.findUnique({ where: { id } });
-      if (!existing) return res.status(404).json({ error: 'Criança não encontrada.' });
+      if (!existing) {
+        return res.status(404).json({ error: 'Criança não encontrada.' });
+      }
 
-      // 2) Atualiza tudo de uma vez, incluindo pontos
+      // 2) Define userId padrão (ajuste para obter de token/sessão, se necessário)
+
+      // 3) Atualiza a criança, apagando os pontos antigos e recriando com userId
       const updated = await prisma.classes.update({
         where: { id },
         data: {
           nome,
           dateOfBirth: new Date(dateOfBirth),
           points: {
-            deleteMany: {},                   // apaga todos os pontos antigos
-            create: points.map(() => ({       // cria tantos pontos quanto houver objetos no array
+            deleteMany: {}, // apaga todos os pontos antigos
+            create: points.map(() => ({
               createdAt: new Date(),
+              userId, // ✅ necessário para evitar erro de integridade
             })),
           },
         },
@@ -336,7 +420,6 @@ class ChildController {
       return res.status(500).json({ error: 'Erro ao adicionar ponto.' });
     }
   }
-
 
   async deletePoint(req: Request, res: Response) {
     try {

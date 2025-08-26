@@ -21,6 +21,8 @@ router.get('/children/', ChildController.index);
 router.get('/children/filterByAge', ChildController.filterByAge);
 router.get('/children/:id', ChildController.getChildById);
 router.get('/children/filterById/:id', ChildController.getChildById);
+router.get('/children/getPoints/:id', ChildController.getPointsById);
+router.get('/children/getAllPoints/:id', ChildController.getAllPointsById);
 
 router.post('/children', ChildController.create);
 router.post('/created/many/children', ChildController.createManyChildren);
