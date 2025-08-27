@@ -25,65 +25,71 @@ class ChildController {
 
   async filterByAge(req: Request, res: Response) {
     try {
-      const { minAge, maxAge, skip = 0, take = 10 } = req.query;
-
-      if (!minAge || !maxAge)
-        return res.status(400).json({ message: "Idades mínimas e máximas são necessárias." });
-
-      const minAgeNumber = Number(minAge);
-      const maxAgeNumber = Number(maxAge);
-      const skipNumber = Number(skip);
-      const takeNumber = Number(take);
-
-      if (isNaN(minAgeNumber) || isNaN(maxAgeNumber))
-        return res.status(400).json({ message: "As idades devem ser números válidos." });
-
-      if (minAgeNumber > maxAgeNumber)
-        return res.status(400).json({ message: "A idade mínima não pode ser maior que a idade máxima." });
+      const { minAge, maxAge, skip = 0, take = 10, search } = req.query;
 
       const now = new Date();
       const currentYear = now.getFullYear();
 
-      const minDateOfBirth = new Date(currentYear - maxAgeNumber, now.getMonth(), now.getDate());
-      const maxDateOfBirth = new Date(currentYear - minAgeNumber, now.getMonth(), now.getDate());
+      let whereClause: any = {};
+      let skipNumber = Number(skip);
+      let takeNumber = Number(take);
+      let applyPagination = true;
 
-      // 🔹 Conta total antes da paginação
-      const total = await prisma.classes.count({
-        where: {
+      // 🔍 Modo de busca por nome (ignora idade e paginação)
+      if (typeof search === "string" && search.trim().length > 0) {
+        whereClause = {
+          nome: {
+            contains: search.trim(),
+            mode: "insensitive", // busca case insensitive
+          },
+        };
+        applyPagination = false;
+      } else {
+        // ✅ Modo normal com filtro por idade
+        if (!minAge || !maxAge)
+          return res.status(400).json({ message: "Idades mínimas e máximas são necessárias." });
+
+        const minAgeNumber = Number(minAge);
+        const maxAgeNumber = Number(maxAge);
+
+        if (isNaN(minAgeNumber) || isNaN(maxAgeNumber))
+          return res.status(400).json({ message: "As idades devem ser números válidos." });
+
+        if (minAgeNumber > maxAgeNumber)
+          return res.status(400).json({ message: "A idade mínima não pode ser maior que a idade máxima." });
+
+        const minDateOfBirth = new Date(currentYear - maxAgeNumber, now.getMonth(), now.getDate());
+        const maxDateOfBirth = new Date(currentYear - minAgeNumber, now.getMonth(), now.getDate());
+
+        whereClause = {
           dateOfBirth: {
             gte: minDateOfBirth,
             lte: maxDateOfBirth,
           },
-        },
-      });
+        };
+      }
+
+      const total = await prisma.classes.count({ where: whereClause });
 
       const children = await prisma.classes.findMany({
-        where: {
-          dateOfBirth: {
-            gte: minDateOfBirth,
-            lte: maxDateOfBirth,
-          },
-        },
+        where: whereClause,
         include: {
           points: true,
         },
         orderBy: {
           nome: "asc",
         },
-        skip: skipNumber,
-        take: takeNumber,
+        ...(applyPagination && { skip: skipNumber, take: takeNumber }),
       });
 
-      // 🔹 Agrupar IDs para evitar N+1 consultas
       const childIds = children.map((c) => c.id);
-
       const pointsGroupedByChild = await prisma.points.groupBy({
         by: ['classId'],
         _count: true,
         where: {
           classId: { in: childIds },
           createdAt: {
-            gte: new Date(now.getTime() - 4 * 60 * 60 * 1000), // últimas 4h
+            gte: new Date(now.getTime() - 4 * 60 * 60 * 1000),
           },
         },
       });
@@ -116,12 +122,12 @@ class ChildController {
         };
       });
 
-      const hasNextPage = skipNumber + takeNumber < total;
+      const hasNextPage = applyPagination ? skipNumber + takeNumber < total : false;
 
       res.json({
         total,
-        pageSize: takeNumber,
-        currentSkip: skipNumber,
+        pageSize: applyPagination ? takeNumber : children.length,
+        currentSkip: applyPagination ? skipNumber : 0,
         hasNextPage,
         data: childrenWithPoints,
       });
