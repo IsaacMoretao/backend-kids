@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  seed = "ts-node prisma/seed.ts"
 }
 
 datasource db {
@@ -53,4 +54,5 @@ enum Level {
 enum TypePeriod {
   MORNING
   NIGHT
+  AFTERNOON
 }

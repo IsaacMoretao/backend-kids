@@ -4,7 +4,7 @@ import UsersController from "./modules/Controllers/UsersController"
 import AdminController from "./modules/Controllers/AdmnController"
 import { upload } from "./Middleware/upload"
 import path from 'path'
-import { updateAllAvatars } from "./scripts/updateAllAvatars"
+import ReportController from "./modules/Controllers/ReportController"
 
 const app = express()
 
@@ -36,6 +36,7 @@ router.delete('/reset/all/points', ChildController.resetAllPoints)
 router.delete('/reset/all/child', ChildController.resetAllChild)
 
 router.get('/listUsers', UsersController.listUsers);
+router.get('/listUsersForPresence', UsersController.listUsersForPresence);
 router.put('/updateUser/:id', upload.single('avatar'), UsersController.updateUser);
 router.delete('/deleteUser/:id', UsersController.deleteUser);
 router.post('/register', UsersController.register);
@@ -48,8 +49,8 @@ router.put('/stopUser/:userId', UsersController.stopedUser)
 
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-app.use('/updateAllAvatars', updateAllAvatars)
-
+app.use('/report.pdf', ReportController.Presences)
+app.use('/report.xls', ReportController.PresencesExcel)
 
 app.get('/', (req, res) => {
   res.send('Server is Running');

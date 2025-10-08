@@ -7,16 +7,6 @@ import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs'
 
-// function isValidBase64Image(base64: string): boolean {
-//   return /^data:image\/(png|jpeg|webp);base64,/.test(base64);
-// }
-
-// async function validateImageWidth(base64: string): Promise<boolean> {
-//   const buffer = Buffer.from(base64.split(',')[1], 'base64');
-//   const metadata = await sharp(buffer).metadata();
-//   return metadata.width !== undefined && metadata.width <= 500;
-// }
-
 const prisma = new PrismaClient();
 const secretKey = process.env.JWT_SECRET || "12345";
 // const normalizeString = (str: string) =>
@@ -212,7 +202,7 @@ class UserController {
           const decoded: any = jwt.verify(String(token), secretKey);
 
           const user = await prisma.user.findUnique({
-            where: { id: decoded.userId  },
+            where: { id: decoded.userId },
             include: { presence: true },
           });
 
@@ -269,57 +259,143 @@ class UserController {
     let { createdAt, period } = req.body;
     const userId = Number(req.params.userId);
 
-
     if (!userId) {
       return res.status(401).json({ error: "Usuário não autenticado." });
     }
 
-    if (period != "MORNING" && period != "NIGHT") {
-      return res.status(400).json({ error: '[[ERRO]] O período deve ser manhã, tarde ou noite. [[ERRO]]' });
+    if (!["MORNING", "AFTERNOON", "NIGHT"].includes(period)) {
+      return res.status(400).json({ error: "O período deve ser manhã, tarde ou noite." });
     }
 
     try {
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
-        return res.status(404).json({ error: 'Erro ao adicionar presença. (Usuário não encontrado)' });
+        return res.status(404).json({ error: "Usuário não encontrado." });
       }
 
       const createdAtDate = createdAt ? new Date(createdAt) : new Date();
-      createdAtDate.setHours(12, 0, 0, 0);
-      const createdAtUTC = new Date(createdAtDate.getTime() - createdAtDate.getTimezoneOffset() * 60000);
 
-      const startOfDay = new Date(createdAtUTC);
-      startOfDay.setHours(12, 0, 0, 0);
-      const endOfDay = new Date(createdAtUTC);
-      endOfDay.setHours(12, 0, 0, 0);
+      // Normaliza para o início do dia local
+      const startOfDay = new Date(createdAtDate);
+      startOfDay.setHours(0, 0, 0, 0);
 
+      const endOfDay = new Date(createdAtDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      // Verifica se já existe presença no mesmo dia e período
       const existingPresence = await prisma.presence.findFirst({
         where: {
           userId,
-          createdAt: {
-            gte: startOfDay,
-            lt: endOfDay,
-          },
+          createdAt: { gte: startOfDay, lte: endOfDay },
           period,
         },
       });
 
       if (existingPresence) {
-        return res.status(400).json({ error: 'Usuário já possui presença registrada neste período.' });
+        return res.status(400).json({ error: "Usuário já possui presença registrada neste período." });
       }
 
       const created = await prisma.presence.create({
-        data: {
-          userId,
-          createdAt: createdAtUTC,
-          period,
-        },
+        data: { userId, createdAt: createdAtDate, period },
       });
 
       return res.status(201).json(created);
     } catch (error) {
-      console.error('Erro ao adicionar presença:', error);
-      return res.status(500).json({ error: 'Erro interno ao adicionar presença.' });
+      console.error("Erro ao adicionar presença:", error);
+      return res.status(500).json({ error: "Erro interno ao adicionar presença." });
+    }
+  }
+
+  async listUsersForPresence(req: Request, res: Response) {
+    const { userId, date, searchName, searchPosition } = req.query;
+
+    const page = searchName || searchPosition ? 1 : Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 100;
+    const skip = (page - 1) * limit;
+
+    try {
+      const selectedDate = date ? new Date(String(date)) : null;
+
+      let startOfDay: Date | null = null;
+      let endOfDay: Date | null = null;
+
+      if (selectedDate) {
+        startOfDay = new Date(selectedDate);
+        startOfDay.setHours(0, 0, 0, 0);
+
+        endOfDay = new Date(selectedDate);
+        endOfDay.setHours(23, 59, 59, 999);
+      }
+
+      if (userId) {
+        const user = await prisma.user.findUnique({
+          where: { id: Number(userId) },
+          include: { presence: true },
+        });
+
+        if (!user) {
+          return res.status(404).json({ error: "Usuário não encontrado." });
+        }
+
+        // Verifica se o usuário já tem presença no dia enviado
+        const havePresence =
+          !!selectedDate &&
+          user.presence.some((p) => {
+            const pDate = new Date(p.createdAt);
+            return pDate >= (startOfDay as Date) && pDate <= (endOfDay as Date);
+          });
+
+        return res.status(200).json({ ...user, havePresence });
+      }
+
+      // 🔹 Filtros de pesquisa
+      const whereCondition: Prisma.UserWhereInput = {
+        ...(searchName && {
+          username: {
+            startsWith: String(searchName),
+            mode: Prisma.QueryMode.insensitive,
+          },
+        }),
+        ...(searchPosition && {
+          position: {
+            startsWith: String(searchPosition).toUpperCase(),
+            mode: Prisma.QueryMode.insensitive,
+          },
+        }),
+      };
+
+      // 🔹 Busca todos os usuários com presenças
+      const users = await prisma.user.findMany({
+        where: whereCondition,
+        include: { presence: true },
+        orderBy: { username: "asc" },
+        skip,
+        take: limit,
+      });
+
+      // 🔹 Adiciona a flag havePresence para cada usuário
+      const usersWithPresenceFlag = users.map((user) => {
+        const havePresence =
+          !!selectedDate &&
+          user.presence.some((p) => {
+            const pDate = new Date(p.createdAt);
+            return pDate >= (startOfDay as Date) && pDate <= (endOfDay as Date);
+          });
+
+        return { ...user, havePresence };
+      });
+
+      const totalUsers = await prisma.user.count({ where: whereCondition });
+
+      return res.status(200).json({
+        data: usersWithPresenceFlag,
+        currentPage: page,
+        totalPages: Math.ceil(totalUsers / limit),
+        totalUsers,
+      });
+    } catch (error) {
+      console.error("Erro ao listar usuários:", error);
+      return res.status(500).json({ error: "Não foi possível listar os usuários." });
     }
   }
 
@@ -405,7 +481,6 @@ class UserController {
       console.error('Não foi possível remover a presença:', error);
       return res.status(500).json({ error: 'Erro ao remover presença.' });
     }
-
   }
 
 }

@@ -1,38 +1,27 @@
-import { Request, Response } from 'express'
-import { prisma } from '../database/prismaClient'
+import cron from "node-cron";
+import { PrismaClient } from "@prisma/client";
+import dayjs from "dayjs";
 
-export async function updateAllAvatars(req: Request, res: Response) {
+const prisma = new PrismaClient();
+
+async function deleteOldPresences() {
   try {
-    // Busca todos os usuários
-    const users = await prisma.user.findMany()
+    const threeMonthsAgo = dayjs().subtract(3, "month").toDate();
 
-    const updatePromises = users.map((user) => {
-      const normalizedUsername = user.username
-        .normalize("NFKC")
-        .replace(/[\u200B-\u200D\uFEFF]/g, "")
-        .trim()
+    const deleted = await prisma.presence.deleteMany({
+      where: {
+        createdAt: { lt: threeMonthsAgo },
+      },
+    });
 
-      const newAvatar = `https://robohash.org/${normalizedUsername}.png`
-
-      return prisma.user.update({
-        where: { id: user.id },
-        data: { avatarURL: newAvatar }
-      })
-    })
-
-    // Aguarda todas as atualizações
-    const updatedUsers = await Promise.all(updatePromises)
-
-    return res.json({
-      message: `Avatares atualizados com sucesso para ${updatedUsers.length} usuários.`,
-      users: updatedUsers.map(u => ({
-        id: u.id,
-        username: u.username,
-        avatarURL: u.avatarURL
-      }))
-    })
+    console.log(`Presenças deletadas: ${deleted.count}`);
   } catch (error) {
-    console.error('Erro ao atualizar avatares:', error)
-    return res.status(500).json({ error: 'Erro ao atualizar os avatares dos usuários.' })
+    console.error("Erro ao deletar presenças antigas:", error);
   }
 }
+
+// Agenda para rodar todo dia às 3h da manhã
+cron.schedule("0 3 * * *", async () => {
+  console.log("Iniciando exclusão de presenças antigas...");
+  await deleteOldPresences();
+});
