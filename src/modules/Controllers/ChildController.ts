@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import type { Request, Response } from 'express';
 import { Prisma, PrismaClient } from '@prisma/client';
+import path from 'path';
+import fs from 'fs'
+import sharp from 'sharp';
 
 interface DeleteChildrenRequest {
   ids: number[];
@@ -16,12 +19,20 @@ class ChildController {
           points: true,
         },
       });
-      return res.status(200).json(children);
+
+      // adiciona o número total de pontos em cada classe
+      const result = children.map((child) => ({
+        ...child,
+        totalPoints: child.points.length,
+      }));
+
+      return res.status(200).json(result);
     } catch (error) {
       console.error('Erro ao listar classes e pontos:', error);
       return res.status(500).json({ error: 'Erro ao listar classes e pontos.' });
     }
   }
+
 
   async filterByAge(req: Request, res: Response) {
     try {
@@ -115,6 +126,7 @@ class ChildController {
         return {
           id: child.id,
           nome: child.nome,
+          avatar: child.avatarURL,
           idade,
           dateOfBirth: birthDateFormatted,
           points: child.points.length,
@@ -200,6 +212,7 @@ class ChildController {
 
     const pointsAdded = await prisma.points.findMany({
       where: {
+        classId: Number(id),
         createdAt: {
           gte: new Date(now.getTime() - 1 * 60 * 1000),
         },
@@ -229,6 +242,7 @@ class ChildController {
 
         const childWithPoints = {
           id: child.id,
+          avatarURL: child.avatarURL,
           nome: child.nome,
           dateOfBirth: birthDateFormatted,
           idade,
@@ -248,8 +262,17 @@ class ChildController {
 
   async create(req: Request, res: Response) {
     try {
-      const children = req.body;
-      if (!Array.isArray(children)) return res.status(400).json({ error: 'O corpo da requisição deve ser um array de crianças.' });
+      let children = req.body.children;
+      const file = req.file
+      if (typeof children === "string") {
+        children = JSON.parse(children);
+      }
+
+      if (!Array.isArray(children)) {
+        return res
+          .status(400)
+          .json({ error: "O corpo da requisição deve ser um array de crianças." });
+      }
 
       const createChild = async (child: any) => {
         const { nome, dateOfBirth, points } = child;
@@ -261,10 +284,29 @@ class ChildController {
         const existingChild = await prisma.classes.findFirst({ where: { nome } });
         if (existingChild) throw new Error('Uma criança com esse nome já existe.');
 
+        let avatarPath = child.avatarURL
+
+        if (file) {
+          const imagePath = path.join(file.destination, file.filename)
+          const sharpPath = path.join(file.destination, `resized-${file.filename}`)
+
+          const image = sharp(file.path)
+          const metadata = await image.metadata()
+
+          if (metadata.width && metadata.width > 500) {
+            await image.resize(500).toFile(sharpPath)
+            fs.unlinkSync(imagePath) // remove original
+            avatarPath = `uploads/avatars/resized-${file.filename}`
+          } else {
+            avatarPath = `uploads/avatars/${file.filename}`
+          }
+        }
+
         return prisma.classes.create({
           data: {
             nome,
             dateOfBirth: dataNascimento,
+            avatarURL: avatarPath,
             points: {
               create: points.map(() => ({ createdAt: new Date() })),
             },
@@ -275,9 +317,14 @@ class ChildController {
 
       const createdChildren = await Promise.all(children.map(createChild));
       return res.status(201).json(createdChildren);
-    } catch (error) {
-      console.error('Erro ao criar crianças:', error);
-      return res.status(500).json({ error: 'Erro ao criar crianças.' });
+    } catch (error: any) {
+      if (error.message.includes('obrigatórios') ||
+        error.message.includes('já existe') ||
+        error.message.includes('data válida')) {
+        return res.status(400).json({ error: error.message });
+      }
+
+      return res.status(500).json({ error: 'Erro interno no servidor.' });
     }
   }
 

@@ -15,7 +15,14 @@ const cors = require("cors")
 
 app.use(cors())
 
+app.use(express.json());
+
+app.use(
+  "/uploads",
+  express.static(path.resolve(__dirname, "uploads"))
+);
 const router = Router();
+
 
 router.get('/children/', ChildController.index);
 router.get('/children/filterByAge', ChildController.filterByAge);
@@ -24,7 +31,7 @@ router.get('/children/filterById/:id', ChildController.getChildById);
 router.get('/children/getPoints/:id', ChildController.getPointsById);
 router.get('/children/getAllPoints/:id', ChildController.getAllPointsById);
 
-router.post('/children', ChildController.create);
+router.post('/children', upload.single("avatar"), ChildController.create);
 router.post('/created/many/children', ChildController.createManyChildren);
 
 router.post('/addPoint/:idChild/:idUser', ChildController.addPoint);
@@ -47,7 +54,7 @@ router.get('/fix-users', UsersController.fixUsers);
 router.post('/admin', AdminController.setDefaultValues);
 router.put('/stopUser/:userId', UsersController.stopedUser)
 
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
 
 app.use('/report.pdf', ReportController.Presences)
 app.use('/report.xls', ReportController.PresencesExcel)
@@ -56,7 +63,6 @@ app.get('/', (req, res) => {
   res.send('Server is Running');
 });
 
-app.use(express.json());
 app.use(router);
 
 app.listen(port, baseURL, () => {

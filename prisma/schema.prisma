@@ -11,6 +11,7 @@ datasource db {
 model Classes {
   id          Int      @id @default(autoincrement())
   nome        String
+  avatarURL   String   @default("https://robohash.org/gerson.png")
   dateOfBirth DateTime
   points      Points[]
 }

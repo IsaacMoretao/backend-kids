@@ -23,6 +23,17 @@ async function main() {
     },
   });
 
+  const teste = await prisma.user.upsert({
+    where: { username: "admin" },
+    update: {},
+    create: {
+      username: "admin",
+      password: "admin123",
+      level: "ADMIN",
+      avatarURL: `https://robohash.org/admin.png`,
+    },
+  });
+
   const user = await prisma.user.upsert({
     where: { username: "joao" },
     update: {},
@@ -34,7 +45,7 @@ async function main() {
     },
   });
 
-  console.log("✅ Usuários criados:", [admin.username, user.username]);
+  console.log("✅ Usuários criados:", [admin.username, user.username, teste.username]);
 
   // --- CRIANÇAS (CLASSES) ---
   console.log("👶 Criando classes (crianças)...");
@@ -99,7 +110,10 @@ async function main() {
     },
   ];
 
+  // Primeiro, apagar os pontos (que dependem das classes)
   await prisma.points.deleteMany();
+  await prisma.classes.deleteMany();
+
   const createdPoints = await prisma.points.createMany({
     data: pointsData,
   });
