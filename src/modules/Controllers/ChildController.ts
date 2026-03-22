@@ -4,6 +4,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import path from 'path';
 import fs from 'fs'
 import sharp from 'sharp';
+import cloudinary from '../../config/cloudinary';
 
 interface DeleteChildrenRequest {
   ids: number[];
@@ -263,7 +264,8 @@ class ChildController {
   async create(req: Request, res: Response) {
     try {
       let children = req.body.children;
-      const file = req.file
+      const file = req.file;
+
       if (typeof children === "string") {
         children = JSON.parse(children);
       }
@@ -276,37 +278,37 @@ class ChildController {
 
       const createChild = async (child: any) => {
         const { nome, dateOfBirth, points } = child;
-        if (!nome || dateOfBirth === undefined || !Array.isArray(points)) throw new Error('Nome, idade e pontos são obrigatórios e pontos deve ser um array.');
+
+        if (!nome || dateOfBirth === undefined || !Array.isArray(points))
+          throw new Error("Nome, idade e pontos são obrigatórios.");
 
         const dataNascimento = new Date(dateOfBirth);
-        if (Number.isNaN(dataNascimento.getTime())) throw new Error('A data de nascimento deve ser uma data válida.');
+        if (Number.isNaN(dataNascimento.getTime()))
+          throw new Error("Data inválida.");
 
         const existingChild = await prisma.classes.findFirst({ where: { nome } });
-        if (existingChild) throw new Error('Uma criança com esse nome já existe.');
+        if (existingChild)
+          throw new Error("Uma criança com esse nome já existe.");
 
-        let avatarPath = child.avatarURL
+        let avatarURL = child.avatarURL || null;
 
+        // 🔥 Upload para Cloudinary
         if (file) {
-          const imagePath = path.join(file.destination, file.filename)
-          const sharpPath = path.join(file.destination, `resized-${file.filename}`)
+          const result = await cloudinary.uploader.upload(file.path, {
+            folder: "kids-avatars",
+            transformation: [
+              { width: 500, height: 500, crop: "fill", quality: "auto" }
+            ],
+          });
 
-          const image = sharp(file.path)
-          const metadata = await image.metadata()
-
-          if (metadata.width && metadata.width > 500) {
-            await image.resize(500).toFile(sharpPath)
-            fs.unlinkSync(imagePath) // remove original
-            avatarPath = `uploads/avatars/resized-${file.filename}`
-          } else {
-            avatarPath = `uploads/avatars/${file.filename}`
-          }
+          avatarURL = result.secure_url;
         }
 
         return prisma.classes.create({
           data: {
             nome,
             dateOfBirth: dataNascimento,
-            avatarURL: avatarPath,
+            avatarURL,
             points: {
               create: points.map(() => ({ createdAt: new Date() })),
             },
@@ -317,14 +319,9 @@ class ChildController {
 
       const createdChildren = await Promise.all(children.map(createChild));
       return res.status(201).json(createdChildren);
-    } catch (error: any) {
-      if (error.message.includes('obrigatórios') ||
-        error.message.includes('já existe') ||
-        error.message.includes('data válida')) {
-        return res.status(400).json({ error: error.message });
-      }
 
-      return res.status(500).json({ error: 'Erro interno no servidor.' });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
     }
   }
 
