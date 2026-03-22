@@ -6,8 +6,10 @@ import { upload } from "./Middleware/upload"
 import path from 'path'
 import ReportController from "./modules/Controllers/ReportController"
 
-const app = express()
+import dotenv from "dotenv";
+dotenv.config();
 
+const app = express()
 const port = process.env.PORT ? Number(process.env.PORT) : 3333;
 const baseURL = '0.0.0.0';
 
@@ -22,7 +24,6 @@ app.use(
   express.static(path.resolve(__dirname, "uploads"))
 );
 const router = Router();
-
 
 router.get('/children/', ChildController.index);
 router.get('/children/filterByAge', ChildController.filterByAge);
