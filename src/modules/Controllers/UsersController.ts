@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs'
+import cloudinary from '../../config/cloudinary';
 
 const prisma = new PrismaClient();
 const secretKey = process.env.JWT_SECRET || "12345";
@@ -67,22 +68,22 @@ class UserController {
         finalPassword = await bcrypt.hash(password.trim(), 10)
       }
 
-      let avatarPath = user.avatarURL
+      let avatarURL = user.avatarURL;
 
       if (file) {
-        const imagePath = path.join(file.destination, file.filename)
-        const sharpPath = path.join(file.destination, `resized-${file.filename}`)
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: "users-avatars",
+          transformation: [
+            {
+              width: 500,
+              height: 500,
+              crop: "fill",
+              quality: "auto",
+            },
+          ],
+        });
 
-        const image = sharp(file.path)
-        const metadata = await image.metadata()
-
-        if (metadata.width && metadata.width > 500) {
-          await image.resize(500).toFile(sharpPath)
-          fs.unlinkSync(imagePath) // remove original
-          avatarPath = `uploads/avatars/resized-${file.filename}`
-        } else {
-          avatarPath = `uploads/avatars/${file.filename}`
-        }
+        avatarURL = result.secure_url;
       }
 
       const updatedUser = await prisma.user.update({
@@ -90,7 +91,7 @@ class UserController {
         data: {
           username,
           password: finalPassword,
-          avatarURL: avatarPath,
+          avatarURL: avatarURL,
           level,
           position
         },
