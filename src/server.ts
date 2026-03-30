@@ -5,11 +5,13 @@ import AdminController from "./modules/Controllers/AdmnController"
 import { upload } from "./Middleware/upload"
 import path from 'path'
 import ReportController from "./modules/Controllers/ReportController"
+import { startMonthlyRoutine } from "./jobs/monthlyRoutine"
 
 import dotenv from "dotenv";
 dotenv.config();
 
 const app = express()
+startMonthlyRoutine()
 const port = process.env.PORT ? Number(process.env.PORT) : 3333;
 const baseURL = '0.0.0.0';
 
@@ -55,8 +57,7 @@ router.get('/fix-users', UsersController.fixUsers);
 router.post('/admin', AdminController.setDefaultValues);
 router.put('/stopUser/:userId', UsersController.stopedUser)
 
-
-
+app.use('/punchingTheClock', UsersController.punchingTheClock )
 app.use('/report.pdf', ReportController.Presences)
 app.use('/report.xls', ReportController.PresencesExcel)
 

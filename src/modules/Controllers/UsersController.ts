@@ -3,9 +3,6 @@ import type { Request, Response } from 'express';
 import { Prisma, PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import sharp from 'sharp';
-import path from 'path';
-import fs from 'fs'
 import cloudinary from '../../config/cloudinary';
 
 const prisma = new PrismaClient();
@@ -253,6 +250,88 @@ class UserController {
     } catch (error) {
       console.error("Erro ao listar usuários:", error);
       return res.status(500).json({ error: "Não foi possível listar os usuários." });
+    }
+  }
+
+  async punchingTheClock(req: Request, res: Response) {
+    try {
+      const { token, latitude, longitude } = req.body;
+         
+      if (!token) {
+        return res.status(401).json({ error: "Token não enviado." });
+      }
+
+
+
+   
+      // validar token
+      const decoded: any = jwt.verify(token, secretKey);
+   
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId }
+      });
+   
+      if (!user) {
+        return res.status(404).json({ error: "Usuário não encontrado." });
+      }
+   
+      // pegar horário de Brasília
+      const response = await fetch(
+        "https://timeapi.io/api/Time/current/zone?timeZone=America/Sao_Paulo"
+      );
+   
+      const timeData = await response.json();
+      const horarioBrasilia = new Date(timeData.dateTime);
+   
+      // definir período
+      const hour = horarioBrasilia.getHours();
+   
+      let period: "MORNING" | "AFTERNOON" | "NIGHT";
+   
+      if (hour >= 6 && hour < 12) period = "MORNING";
+      else if (hour >= 12 && hour < 16) period = "AFTERNOON";
+      else if (hour >= 16 && hour < 20)period = "NIGHT";
+      else return res.status(500).json({ error: "Horário invalido." });
+
+      const startOfDay = new Date(horarioBrasilia);
+        startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(horarioBrasilia);
+        endOfDay.setHours(23, 59, 59, 999);
+
+      const existingPresence = await prisma.presence.findFirst({
+        where: {
+          userId: decoded.userId,
+          createdAt: { gte: startOfDay, lte: endOfDay },
+          period,
+        },
+      });
+
+      if (existingPresence) {
+        return res.status(400).json({ error: "Você já possui presença registrada neste período." });
+      }
+   
+      // criar presença
+      const presence = await prisma.presence.create({
+        data: {
+          userId: user.id,
+          period,
+          createdAt: horarioBrasilia
+        }
+      });
+   
+      return res.status(201).json({
+        message: "Ponto registrado com sucesso",
+        presence,
+        latitude,
+        longitude
+      });
+   
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+        error: "Erro ao bater ponto"
+      });
     }
   }
 
