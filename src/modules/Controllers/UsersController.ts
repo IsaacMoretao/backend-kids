@@ -290,7 +290,7 @@ class UserController {
    
       if (hour >= 6 && hour < 12) period = "MORNING";
       else if (hour >= 12 && hour < 16) period = "AFTERNOON";
-      else if (hour >= 16 && hour < 20)period = "NIGHT";
+      else if (hour >= 16 && hour < 22)period = "NIGHT";
       else return res.status(500).json({ error: "Horário invalido." });
 
       const startOfDay = new Date(horarioBrasilia);
