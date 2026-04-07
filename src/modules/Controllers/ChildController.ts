@@ -70,8 +70,8 @@ class ChildController {
         if (minAgeNumber > maxAgeNumber)
           return res.status(400).json({ message: "A idade mínima não pode ser maior que a idade máxima." });
 
-        const minDateOfBirth = new Date(currentYear - maxAgeNumber, now.getMonth(), now.getDate());
-        const maxDateOfBirth = new Date(currentYear - minAgeNumber, now.getMonth(), now.getDate());
+        const minDateOfBirth = new Date(currentYear - maxAgeNumber, 0, 1);
+        const maxDateOfBirth = new Date(currentYear - minAgeNumber, 11, 31);
 
         whereClause = {
           dateOfBirth: {
@@ -101,7 +101,7 @@ class ChildController {
         where: {
           classId: { in: childIds },
           createdAt: {
-            gte: new Date(now.getTime() - 4 * 60 * 60 * 1000),
+            gte: new Date(now.getTime() - 2 * 60 * 60 * 1000), //2 horas
           },
         },
       });
