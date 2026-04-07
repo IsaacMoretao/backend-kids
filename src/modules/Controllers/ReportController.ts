@@ -33,14 +33,6 @@ class ReportController {
       endDate = parsedEnd.endOf("day");
     }
 
-    // Validar limite de 3 meses atrás
-    const threeMonthsAgo = dayjs().subtract(3, "month").startOf("day");
-    if (startDate.isBefore(threeMonthsAgo) || endDate.isAfter(dayjs())) {
-      return res.status(400).json({
-        message: "O intervalo de datas deve estar dentro dos últimos 3 meses e não ultrapassar hoje.",
-      });
-    }
-
     // Converter para Date para usar no Prisma
     const startOfRange = startDate.toDate();
     const endOfRange = endDate.toDate();
@@ -254,13 +246,6 @@ class ReportController {
       endDate = parsedEnd.endOf("day");
     }
 
-    // Limite 3 meses
-    const threeMonthsAgo = dayjs().subtract(3, "month").startOf("day");
-    if (startDate.isBefore(threeMonthsAgo) || endDate.isAfter(dayjs())) {
-      return res.status(400).json({
-        message: "O intervalo de datas deve estar dentro dos últimos 3 meses e não ultrapassar hoje.",
-      });
-    }
 
     const startOfRange = startDate.toDate();
     const endOfRange = endDate.toDate();
