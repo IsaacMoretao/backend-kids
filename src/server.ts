@@ -2,6 +2,7 @@ import express, { Router } from "express"
 import ChildController from "./modules/Controllers/ChildController"
 import UsersController from "./modules/Controllers/UsersController"
 import AdminController from "./modules/Controllers/AdmnController"
+import DocumentTopicController from "./modules/Controllers/DocumentTopicController"
 import { upload } from "./Middleware/upload"
 import path from 'path'
 import ReportController from "./modules/Controllers/ReportController"
@@ -56,6 +57,23 @@ router.delete('/removePresence/:presenceId', UsersController.removePresence);
 router.get('/fix-users', UsersController.fixUsers);
 router.post('/admin', AdminController.setDefaultValues);
 router.put('/stopUser/:userId', UsersController.stopedUser)
+
+router.post('/createTopic', DocumentTopicController.create);
+router.get('/listTopic', DocumentTopicController.findAll);
+router.get('/listTopicById/:id', DocumentTopicController.findById);
+router.put('/updateTopic/:id', DocumentTopicController.update);
+router.delete('/deleteTopic/:id', DocumentTopicController.delete);
+router.get('/listTopic/:id/users', DocumentTopicController.findUsersDelivery);
+router.get(
+  '/user/:userId/submissions',
+  DocumentTopicController.findMySubmissions
+);
+router.post(
+  '/submitDocument/:topicId/:userId',
+  upload.single('file'),
+  DocumentTopicController.uploadDocument
+);
+
 
 app.use('/punchingTheClock', UsersController.punchingTheClock )
 app.use('/report.pdf', ReportController.Presences)

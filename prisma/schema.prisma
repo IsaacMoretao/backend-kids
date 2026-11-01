@@ -27,16 +27,60 @@ model Points {
 }
 
 model User {
-  id        Int        @id @default(autoincrement())
-  level     Level
-  isActive  Boolean    @default(true)
-  avatarURL String     @default("https://robohash.org/gerson.png")
-  username  String     @unique
-  position  String     @default("AUXILIAR")
-  password  String
-  points    Points[]
-  presence  Presence[]
+  id              Int        @id @default(autoincrement())
+  level           Level
+  isActive        Boolean    @default(true)
+  avatarURL       String     @default("https://robohash.org/gerson.png")
+  username        String     @unique
+  position        String     @default("AUXILIAR")
+  password        String
+  particularities String
+
+  points          Points[]
+  presence        Presence[]
+  canceledDays    CanceledDays[]
+  DocumentSubmissions DocumentSubmission[]
+
 }
+
+model DocumentTopic {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  title       String
+  description String
+  endDate     DateTime
+  
+  subimissions DocumentSubmission[]
+  
+}
+
+model DocumentSubmission {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  topicId     Int
+  fileName    String
+  fileUrl     String
+  mimeType    String
+  submittedAt DateTime @default(now())
+
+  user  User    @relation(fields: [userId], references: [id])
+  topic  DocumentTopic    @relation(fields: [topicId], references: [id])
+
+  @@unique([userId, topicId])
+
+}
+
+model CanceledDays {
+  id                    Int      @id @default(autoincrement())
+  createdAt             DateTime @default(now())
+  canceledDay           DateTime
+  reasonForCancellation String
+  isApproved            Boolean  @default(true)
+
+  userId  Int
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 
 model Presence {
   id        Int        @id @default(autoincrement())

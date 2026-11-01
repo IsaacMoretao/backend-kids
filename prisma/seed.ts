@@ -1,126 +1,223 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Level } from "@prisma/client";
 import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🌱 Iniciando seed do banco de dados...");
+  console.log("🌱 Iniciando seed...");
 
-  // --- USUÁRIOS ---
-  console.log("👤 Criando usuários...");
+  // ==========================================
+  // LIMPEZA DO BANCO
+  // ==========================================
 
-  const passwordAdmin = await bcrypt.hash("admin123", 10);
-  const passwordUser = await bcrypt.hash("user123", 10);
+  await prisma.documentSubmission.deleteMany();
+  await prisma.documentTopic.deleteMany();
+
+  await prisma.points.deleteMany();
+  await prisma.presence.deleteMany();
+  await prisma.canceledDays.deleteMany();
+  await prisma.classes.deleteMany();
+
+  console.log("🧹 Dados antigos removidos");
+
+  // ==========================================
+  // USUÁRIOS
+  // ==========================================
+
+  const adminPassword = await bcrypt.hash("admin123", 10);
+  const userPassword = await bcrypt.hash("user123", 10);
 
   const admin = await prisma.user.upsert({
     where: { username: "admin" },
     update: {},
     create: {
       username: "admin",
-      password: passwordAdmin,
-      level: "ADMIN",
-      avatarURL: `https://robohash.org/admin.png`,
+      password: adminPassword,
+      level: Level.ADMIN,
+      avatarURL: "https://robohash.org/admin.png",
+      particularities: "Administrador do sistema",
+      position: "LÍDER",
     },
   });
 
-  const teste = await prisma.user.upsert({
-    where: { username: "admin" },
-    update: {},
-    create: {
-      username: "admin",
-      password: "admin123",
-      level: "ADMIN",
-      avatarURL: `https://robohash.org/admin.png`,
-    },
-  });
-
-  const user = await prisma.user.upsert({
+  const joao = await prisma.user.upsert({
     where: { username: "joao" },
     update: {},
     create: {
       username: "joao",
-      password: passwordUser,
-      level: "USER",
-      avatarURL: `https://robohash.org/joao.png`,
+      password: userPassword,
+      level: Level.USER,
+      avatarURL: "https://robohash.org/joao.png",
+      particularities: "Usuário de teste",
+      position: "AUXILIAR",
     },
   });
 
-  console.log("✅ Usuários criados:", [admin.username, user.username, teste.username]);
+  console.log("✅ Usuários criados");
 
-  // --- CRIANÇAS (CLASSES) ---
-  console.log("👶 Criando classes (crianças)...");
+  // ==========================================
+  // CLASSES
+  // ==========================================
 
-  const classesData = [
-    {
-      nome: "Maria Silva",
-      dateOfBirth: new Date("2015-04-10"),
-    },
-    {
-      nome: "João Pereira",
-      dateOfBirth: new Date("2013-09-25"),
-    },
-    {
-      nome: "Ana Souza",
-      dateOfBirth: new Date("2014-12-05"),
-    },
-    {
-      nome: "Pedro Lima",
-      dateOfBirth: new Date("2016-06-18"),
-    },
-    {
-      nome: "Beatriz Rocha",
-      dateOfBirth: new Date("2012-02-22"),
-    },
-  ];
+  const classes = await Promise.all([
+    prisma.classes.create({
+      data: {
+        nome: "Maria Silva",
+        dateOfBirth: new Date("2015-04-10"),
+      },
+    }),
 
-  await prisma.classes.deleteMany();
-  const createdClasses = await prisma.classes.createMany({
-    data: classesData,
-  });
+    prisma.classes.create({
+      data: {
+        nome: "João Pereira",
+        dateOfBirth: new Date("2013-09-25"),
+      },
+    }),
 
-  console.log(`✅ ${createdClasses.count} classes criadas.`);
+    prisma.classes.create({
+      data: {
+        nome: "Ana Souza",
+        dateOfBirth: new Date("2014-12-05"),
+      },
+    }),
 
-  const allClasses = await prisma.classes.findMany();
-  console.log("📘 IDs das classes:", allClasses.map((c) => c.id));
+    prisma.classes.create({
+      data: {
+        nome: "Pedro Lima",
+        dateOfBirth: new Date("2016-06-18"),
+      },
+    }),
 
-  // --- PONTOS ---
-  console.log("⭐ Criando pontos para algumas crianças...");
+    prisma.classes.create({
+      data: {
+        nome: "Beatriz Rocha",
+        dateOfBirth: new Date("2012-02-22"),
+      },
+    }),
+  ]);
+
+  console.log(`✅ ${classes.length} classes criadas`);
+
+  // ==========================================
+  // PONTOS
+  // ==========================================
 
   const now = new Date();
-  const pointsData = [
-    {
-      classId: allClasses[0].id,
-      userId: admin.id,
-      createdAt: new Date(now.getTime() - 1 * 60 * 60 * 1000), // 1 hora atrás
-    },
-    {
-      classId: allClasses[0].id,
-      userId: admin.id,
-      createdAt: new Date(now.getTime() - 3 * 60 * 60 * 1000), // 3 horas atrás
-    },
-    {
-      classId: allClasses[1].id,
-      userId: user.id,
-      createdAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-    },
-    {
-      classId: allClasses[2].id,
-      userId: user.id,
-      createdAt: new Date(now.getTime() - 6 * 60 * 60 * 1000),
-    },
-  ];
 
-  // Primeiro, apagar os pontos (que dependem das classes)
-  await prisma.points.deleteMany();
-  await prisma.classes.deleteMany();
-
-  const createdPoints = await prisma.points.createMany({
-    data: pointsData,
+  await prisma.points.createMany({
+    data: [
+      {
+        classId: classes[0].id,
+        userId: admin.id,
+        createdAt: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+      },
+      {
+        classId: classes[0].id,
+        userId: admin.id,
+        createdAt: new Date(now.getTime() - 3 * 60 * 60 * 1000),
+      },
+      {
+        classId: classes[1].id,
+        userId: joao.id,
+        createdAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+      },
+      {
+        classId: classes[2].id,
+        userId: joao.id,
+        createdAt: new Date(now.getTime() - 6 * 60 * 60 * 1000),
+      },
+    ],
   });
 
-  console.log(`✅ ${createdPoints.count} pontos criados.`);
+  console.log("✅ Pontos criados");
 
-  console.log("🌳 Seed concluído com sucesso!");
+  // ==========================================
+  // PRESENÇAS
+  // ==========================================
+
+  await prisma.presence.createMany({
+    data: [
+      {
+        userId: admin.id,
+        period: "MORNING",
+      },
+      {
+        userId: admin.id,
+        period: "AFTERNOON",
+      },
+      {
+        userId: joao.id,
+        period: "NIGHT",
+      },
+    ],
+  });
+
+  console.log("✅ Presenças criadas");
+
+  // ==========================================
+  // TÓPICOS DE DOCUMENTOS
+  // ==========================================
+
+  const topic1 = await prisma.documentTopic.create({
+    data: {
+      title: "Resumo do livro",
+      description:
+        "Realizar a leitura do livro e entregar um resumo em PDF.",
+      endDate: new Date("2026-11-10T23:59:59"),
+    },
+  });
+
+  const topic2 = await prisma.documentTopic.create({
+    data: {
+      title: "Pesquisa bíblica",
+      description:
+        "Realizar uma pesquisa sobre as alianças bíblicas e enviar o documento.",
+      endDate: new Date("2026-11-20T23:59:59"),
+    },
+  });
+
+  console.log("✅ Tópicos de documentos criados");
+
+  // ==========================================
+  // ENTREGAS DE DOCUMENTOS
+  // ==========================================
+
+  await prisma.documentSubmission.create({
+    data: {
+      userId: joao.id,
+      topicId: topic1.id,
+      fileName: "resumo.pdf",
+      fileUrl: "https://example.com/resumo.pdf",
+      mimeType: "application/pdf",
+      submittedAt: new Date(),
+    },
+  });
+
+  console.log("✅ Entrega de documento criada");
+
+  // ==========================================
+  // FINALIZAÇÃO
+  // ==========================================
+
+  console.log("🎉 Seed concluído com sucesso!");
+
+  console.log(`
+  📊 RESUMO:
+
+  Usuários:
+  - Admin: admin
+  - Usuário: joao
+
+  Classes: ${classes.length}
+
+  Tópicos:
+  - ${topic1.title}
+  - ${topic2.title}
+
+  Entregas:
+  - João entregou: ${topic1.title}
+  - João pendente: ${topic2.title}
+  `);
 }
 
 main()
