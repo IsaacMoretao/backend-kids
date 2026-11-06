@@ -5,7 +5,7 @@
 
 */
 -- AlterTable
-ALTER TABLE "User" ADD COLUMN     "particularities" TEXT NOT NULL;
+ALTER TABLE "User" ADD COLUMN "particularities" TEXT NOT NULL DEFAULT '';
 
 -- CreateTable
 CREATE TABLE "CanceledDays" (
