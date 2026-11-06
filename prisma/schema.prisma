@@ -34,8 +34,7 @@ model User {
   username        String     @unique
   position        String     @default("AUXILIAR")
   password        String
-  // particularities String
-
+  
   points          Points[]
   presence        Presence[]
   canceledDays    CanceledDays[]
